@@ -1,6 +1,7 @@
 #include <string_view>
 #include <fstream>
 #include <memory>
+#include <string>
 
 #include "errorHandling.hpp"
 #include "Logging.hpp"
@@ -72,7 +73,14 @@ MonoAssembly* ScriptingEngine::LoadCILAssembly(const std::string_view assemblyPa
 
 void ScriptingEngine::initMono()
 {
-    mono_set_assemblies_path(".");
+#if defined(_WIN32)
+    //Mono should be installed in program files.
+    mono_set_assemblies_path(
+        std::string(std::getenv("ProgramFiles")).append("\\Mono\\lib").c_str());
+#elif
+    
+#endif
+
     m_rootDomainPtr = mono_jit_init("j^2JitDomain");
     if(!m_rootDomainPtr)
     {

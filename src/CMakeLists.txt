@@ -17,6 +17,12 @@ endif()
 
 project(DreamForge LANGUAGES CXX)
 
+if(WIN32)
+	set(MONO_PATH "$ENV{ProgramFiles}\\Mono")
+elseif()
+#TODO do the linux/mac stuffs
+endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)

@@ -82,7 +82,5 @@ target_link_libraries(${CORE_LIB_NAME}
     SDL2_ttf::SDL2_ttf
 )
 
-target_link_libraries(${CORE_LIB_NAME} PRIVATE
-	${CMAKE_SOURCE_DIR}/../thirdPartyPackages/mono/lib/mono-2.0-sgen.lib
-)
-target_include_directories(${CORE_LIB_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/../thirdPartyPackages/mono/include)
+target_link_libraries(${CORE_LIB_NAME} PRIVATE ${MONO_PATH}/lib/mono-2.0-sgen.lib)
+target_include_directories(${CORE_LIB_NAME} PRIVATE ${MONO_PATH}/include/mono-2.0)
