@@ -1,6 +1,6 @@
 Build inscructions:
 
-1) git clone 
+1) git clone https://github.com/oskarGrr/DreamForge
 
 2) download Vcpkg and Cmake if not already installed https://vcpkg.io/en/getting-started https://cmake.org/download/
 
