@@ -1,0 +1,1 @@
+cmake -S src -B build -DCMAKE_CXX_COMPILER=/usr/bin/g++-12
