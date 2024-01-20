@@ -18,9 +18,11 @@ add_custom_target(copy_resources
 )
 add_dependencies(${EDITOR_EXE_NAME} copy_resources)
 
-add_custom_command(TARGET ${EDITOR_EXE_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-	${MONO_PATH}/bin/mono-2.0-sgen.dll
-	$<TARGET_FILE_DIR:${EDITOR_EXE_NAME}>
-	COMMAND_EXPAND_LISTS
-)
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
+    add_custom_command(TARGET ${EDITOR_EXE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$ENV{ProgramFiles}\\Mono\\bin\\mono-2.0-sgen.dll"
+        $<TARGET_FILE_DIR:${EDITOR_EXE_NAME}>
+        COMMAND_EXPAND_LISTS
+    )
+endif()

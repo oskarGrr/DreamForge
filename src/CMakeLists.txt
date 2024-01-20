@@ -11,17 +11,13 @@ if(EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
 else()
     message(FATAL_ERROR 
         "vcpkg could not be found. If you already have vcpkg installed,
-		then try setting the environment variable VCPKG_ROOT"
+		then set the environment variable VCPKG_ROOT to the absolute path
+		where vcpkg was installed. For some reason vcpkg does not set this 
+		environment variable automatically when it gets installed."
     )
 endif()
 
 project(DreamForge LANGUAGES CXX)
-
-if(WIN32)
-	set(MONO_PATH "$ENV{ProgramFiles}\\Mono")
-elseif()
-#TODO do the linux/mac stuffs
-endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)

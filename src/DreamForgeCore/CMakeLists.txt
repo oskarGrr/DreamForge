@@ -73,14 +73,32 @@ find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_image CONFIG REQUIRED)
 find_package(SDL2_mixer CONFIG REQUIRED)
 find_package(SDL2_ttf CONFIG REQUIRED)
-target_link_libraries(${CORE_LIB_NAME} 
-    PRIVATE
-    SDL2::SDL2
-	SDL2::SDL2main
-    SDL2_image::SDL2_image
-    SDL2_mixer::SDL2_mixer
-    SDL2_ttf::SDL2_ttf
-)
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
+    target_link_libraries(${CORE_LIB_NAME} 
+        PRIVATE
+        SDL2::SDL2
+        SDL2::SDL2main
+        SDL2_image::SDL2_image
+        SDL2_mixer::SDL2_mixer
+        SDL2_ttf::SDL2_ttf
+    )
+else(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    target_link_libraries(${CORE_LIB_NAME} 
+        PRIVATE
+        SDL2::SDL2
+        SDL2::SDL2main
+        SDL2_image::SDL2_image-static
+        SDL2_mixer::SDL2_mixer-static
+        SDL2_ttf::SDL2_ttf-static
+    )
+endif()
 
-target_link_libraries(${CORE_LIB_NAME} PRIVATE ${MONO_PATH}/lib/mono-2.0-sgen.lib)
-target_include_directories(${CORE_LIB_NAME} PRIVATE ${MONO_PATH}/include/mono-2.0)
+if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
+    find_library(MONO_RUNTIME mono-2.0-sgen.lib REQUIRED HINTS "$ENV{ProgramFiles}\\Mono\\lib")
+	target_include_directories(${CORE_LIB_NAME} PRIVATE "$ENV{ProgramFiles}\\Mono\\include\\mono-2.0")
+elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
+    find_library(MONO_RUNTIME monosgen-2.0.a REQUIRED HINTS "/lib" "/usr/lib")
+	target_include_directories(${CORE_LIB_NAME} PRIVATE "/usr/include/mono-2.0/mono")
+endif()
+
+target_link_libraries(${CORE_LIB_NAME} PRIVATE ${MONO_RUNTIME})
