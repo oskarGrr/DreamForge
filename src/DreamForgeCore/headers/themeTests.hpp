@@ -198,7 +198,7 @@ inline void themeDarkRedOrange()
     colors[ImGuiCol_Text]             = {.973f, .932f, .933f, .935f};
     colors[ImGuiCol_CheckMark]        = {.818f, .539f, .245f, .9f};
     colors[ImGuiCol_Border].w = 0.0f;
-    colors[ImGuiCol_SliderGrab]       = colors[ImGuiCol_CheckMark];
+    colors[ImGuiCol_SliderGrab]       = {.99f, .99f, .2, .7};//= colors[ImGuiCol_CheckMark];
     colors[ImGuiCol_SliderGrab].w = .78f;
     colors[ImGuiCol_SliderGrabActive] = {.727f, .727f, .727f, .540f};
     colors[ImGuiCol_Separator]        = colors[ImGuiCol_HeaderHovered];
