@@ -74,11 +74,11 @@ MonoAssembly* ScriptingEngine::LoadCILAssembly(const std::string_view assemblyPa
 void ScriptingEngine::initMono()
 {
 #if defined(_WIN32)
-    //Mono should be installed in program files.
+    //Mono should have been installed in the Program Files folder on windows.
     mono_set_assemblies_path(
         std::string(std::getenv("ProgramFiles")).append("\\Mono\\lib").c_str());
-#elif
-    
+#elif defined(__linux__)
+    mono_set_assemblies_path("/lib");
 #endif
 
     m_rootDomainPtr = mono_jit_init("j^2JitDomain");
