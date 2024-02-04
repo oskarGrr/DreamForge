@@ -12,7 +12,7 @@ public:
     ScriptingEngine();
     ~ScriptingEngine();
 
-    void addInternalCall(void (*)(void), std::string_view funcName);
+    void addInternalCall(const void* method, std::string_view funcName);
     static void printCILTypes(MonoAssembly* const assembly);
     [[nodiscard]] static MonoAssembly* LoadCILAssembly(const std::string_view assemblyPath);
 
