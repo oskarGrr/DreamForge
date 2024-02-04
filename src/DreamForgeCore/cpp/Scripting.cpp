@@ -104,7 +104,7 @@ void ScriptingEngine::shutdownMono()
 
 void ScriptingEngine::addInternalCall(void(*internalFunc)(), std::string_view funcName)
 {
-    mono_add_internal_call(funcName.data(), internalFunc);
+    mono_add_internal_call(funcName.data(), static_cast<const void*>(internalFunc));
 }
 
 void ScriptingEngine::printCILTypes(MonoAssembly* const assembly)
