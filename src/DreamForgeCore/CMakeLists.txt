@@ -98,7 +98,7 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
 	target_include_directories(${CORE_LIB_NAME} PRIVATE "$ENV{ProgramFiles}\\Mono\\include\\mono-2.0")
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     find_library(MONO_RUNTIME monosgen-2.0 REQUIRED HINTS "/lib" "/usr/lib")
-	target_include_directories(${CORE_LIB_NAME} PRIVATE "/usr/include/mono-2.0/mono")
+	target_include_directories(${CORE_LIB_NAME} PRIVATE "/usr/include/mono-2.0")
 endif()
 
 target_link_libraries(${CORE_LIB_NAME} PRIVATE ${MONO_RUNTIME})
