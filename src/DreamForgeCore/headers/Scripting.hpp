@@ -2,6 +2,7 @@
 
 #include "mono/metadata/image.h"
 #include "mono/utils/mono-forward.h"
+#include <memory>//unique_ptr
 
 //Not a static singleton to avoid SIOF and other problems, but
 //there is still only meant to be 1 instantiation of a ScriptingEngine.
