@@ -3,7 +3,7 @@ Right now Dream Forge is a WIP and very new. There is not even a renderer yet, b
 to be a life long project that will hopefully provide lots of learning experiences.                      
 Currently I am working on the foundation of the project and thinking about architecture decisions.       
 The build system is mostly in place for now (CMake and vcpkg). The Mono Project runtime has been embedded
-into the core of the engine to allow for running C# code for scripts. In the future I hope to also       
+into the core of the engine to allow for running C# scripts. In the future I hope to also       
 include interfaces for other languages that compile to ECMA byte code too!                               
 
 ## Build inscructions:
