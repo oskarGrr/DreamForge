@@ -2,15 +2,13 @@
     "name": "dream-forge",
     "version": "0.0.1",
     "dependencies": [
-        "sdl2",
-        "sdl2-mixer",
-        "sdl2-image",
-        "sdl2-ttf",
+        "glfw3",
+        "vulkan",
         "glm",
         "spdlog",
         {
             "name": "imgui",
-            "features": [ "docking-experimental", "sdl2-binding", "sdl2-renderer-binding" ]
+            "features": [ "docking-experimental", "vulkan-binding", "glfw-binding" ]
         }
     ]
 }

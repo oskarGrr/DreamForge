@@ -2,7 +2,7 @@
 #include "DreamForge.hpp"
 #include <iostream>
 
-class EditorApp : public JsquaredApp
+class EditorApp : public DreamForgeApp
 {
 public:
     EditorApp()=default;

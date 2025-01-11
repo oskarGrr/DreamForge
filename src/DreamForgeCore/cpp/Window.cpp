@@ -1,69 +1,40 @@
 #include <iostream>
+
+#include <GLFW/glfw3.h>
+
 #include "imgui.h"
-#include "imgui_impl_sdlrenderer2.h"
-#include "imgui_impl_sdl2.h"
 #include "Window.hpp"
-#include "SDL.h"
-#include "SDL_mixer.h"
-#include "SDL_ttf.h"
-#include "SDL_image.h"
 #include "themeTests.hpp"
+#include "Logging.hpp" 
+#include "errorHandling.hpp"
 
-Window::Window(uint32_t sdlFlags, uint32_t windowFlags)
+Window::Window(int width, int height) : m_width{width}, m_height{height}
 {
-    SDL_Init(sdlFlags);
+    glfwInit();
 
-    m_window = SDL_CreateWindow
-    (
-        m_title.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        m_width,
-        m_height,
-        windowFlags
-    );
+    //pass in a callback function that will log glfw errors if they occur
+    glfwSetErrorCallback(errorHandlerCallbackglfw);
 
-    if(!m_window)
-    {
-        std::cerr << SDL_GetError() << '\n';
-        //TODO make error logger
-        return;
-    }
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    m_window = glfwCreateWindow(m_width, m_height, m_title, nullptr, nullptr);
 
-    m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED);
-
-    ImGui::CreateContext();
-    ImGui_ImplSDL2_InitForSDLRenderer(m_window, m_renderer);
-    ImGui_ImplSDLRenderer2_Init(m_renderer);
-
-    TTF_Init();
-    IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF | IMG_INIT_WEBP);
-    Mix_Init
-    (
-        MIX_INIT_MP3 | MIX_INIT_FLAC |
-        MIX_INIT_OGG | MIX_INIT_MID
-    );
-
-    setImGuiSettings();
+    //setImGuiSettings();
 }
 
 Window::~Window()
 {
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
-
-    TTF_Quit();
-    Mix_Quit();
-    IMG_Quit();
-    SDL_DestroyWindow(m_window);
-    SDL_DestroyRenderer(m_renderer);
-    SDL_Quit();
+    glfwDestroyWindow(this->m_window);
+    glfwTerminate();
 }
 
 void Window::maximize()
 {
-    SDL_MaximizeWindow(m_window);
+    glfwMaximizeWindow(m_window);
+}
+
+bool Window::shouldClose() const
+{
+    return glfwWindowShouldClose(m_window);
 }
 
 void Window::setImGuiSettings()
@@ -73,9 +44,9 @@ void Window::setImGuiSettings()
     //themeGreenDark();
     //themeLight();
     //themeSuperDark();
-    themeDarkRedOrange();
+    //themeDarkRedOrange();
 
-    auto& io = ImGui::GetIO();
+   /* auto& io = ImGui::GetIO();
     io.Fonts->AddFontFromFileTTF("resources/fonts/ebrima.ttf", 16.0);
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;*/
 }

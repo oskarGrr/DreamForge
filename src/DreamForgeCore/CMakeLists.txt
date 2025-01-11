@@ -6,7 +6,6 @@ set(HEADER_FILES
     headers/Logging.hpp
     headers/DFApp.hpp
     headers/Scripting.hpp
-    headers/Texture.hpp
     headers/Window.hpp
     interfaceHeaders/DreamForge.hpp
     headers/themeTests.hpp
@@ -17,7 +16,6 @@ set(CPP_FILES
     cpp/DFLog.cpp
     cpp/DFApp.cpp
     cpp/Scripting.cpp
-    cpp/Texture.cpp
     cpp/Window.cpp
 )
 
@@ -58,7 +56,7 @@ target_compile_definitions(${CORE_LIB_NAME} PRIVATE -DTOP_LEVEL_CMAKE=${CMAKE_SO
 
 target_include_directories(${CORE_LIB_NAME} INTERFACE interfaceHeaders)
 
-#set(CMAKE_FIND_DEBUG_MODE True)
+set(CMAKE_FIND_DEBUG_MODE True)
 
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(${CORE_LIB_NAME} PRIVATE glm::glm)
@@ -69,29 +67,11 @@ target_link_libraries(${CORE_LIB_NAME} PUBLIC spdlog::spdlog_header_only)
 find_package(imgui CONFIG REQUIRED)
 target_link_libraries(${CORE_LIB_NAME} PRIVATE imgui::imgui)
 
-find_package(SDL2 CONFIG REQUIRED)
-find_package(SDL2_image CONFIG REQUIRED)
-find_package(SDL2_mixer CONFIG REQUIRED)
-find_package(SDL2_ttf CONFIG REQUIRED)
-if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
-    target_link_libraries(${CORE_LIB_NAME} 
-        PRIVATE
-        SDL2::SDL2
-        SDL2::SDL2main
-        SDL2_image::SDL2_image
-        SDL2_mixer::SDL2_mixer
-        SDL2_ttf::SDL2_ttf
-    )
-else(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
-    target_link_libraries(${CORE_LIB_NAME} 
-        PRIVATE
-        SDL2::SDL2
-        SDL2::SDL2main
-        SDL2_image::SDL2_image-static
-        SDL2_mixer::SDL2_mixer-static
-        SDL2_ttf::SDL2_ttf-static
-    )
-endif()
+find_package(glfw3 3.3 REQUIRED)
+target_link_libraries(${CORE_LIB_NAME} PRIVATE glfw)
+
+find_package(Vulkan REQUIRED)
+target_link_libraries(${CORE_LIB_NAME} PRIVATE Vulkan::Vulkan)
 
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
     find_library(MONO_RUNTIME mono-2.0-sgen.lib REQUIRED HINTS "$ENV{ProgramFiles}\\Mono\\lib")

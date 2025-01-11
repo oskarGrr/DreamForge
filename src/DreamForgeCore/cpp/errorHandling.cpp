@@ -1,4 +1,5 @@
 #include "errorHandling.hpp"
+#include "Logging.hpp"
 #include <unordered_map>
 #include <string>
 
@@ -12,4 +13,11 @@ std::string_view DFError::getStr() const
     };
     
     return errorStrings[m_code];
+}
+
+void errorHandlerCallbackglfw(int code, const char* codeStr)
+{
+    //for now just log the error. if necessary, in the future 
+    //do specific things depending on the error code.
+    DFLog::get().stdoutError(codeStr);
 }

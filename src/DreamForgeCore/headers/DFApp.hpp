@@ -3,20 +3,20 @@
 #include "Window.hpp"
 #include "df_export.hpp"
 
-class DF_DLL_API JsquaredApp
+class DF_DLL_API DreamForgeApp
 {
 public:
-    JsquaredApp();
-    virtual ~JsquaredApp()=default;
+    DreamForgeApp();
+    virtual ~DreamForgeApp()=default;
     
-    JsquaredApp(JsquaredApp const&)=delete;
-    JsquaredApp(JsquaredApp&&)=delete;
-    JsquaredApp& operator=(JsquaredApp const&)=delete;
-    JsquaredApp& operator=(JsquaredApp&&)=delete;
+    DreamForgeApp(DreamForgeApp const&)=delete;
+    DreamForgeApp(DreamForgeApp&&)=delete;
+    DreamForgeApp& operator=(DreamForgeApp const&)=delete;
+    DreamForgeApp& operator=(DreamForgeApp&&)=delete;
     
     void runApp();
 
-    void processSDLEvents();
+    void processWindowEvents();
 
 private:
     Window m_window;

@@ -41,3 +41,5 @@ public:
 private:
     Code m_code;
 };
+
+void errorHandlerCallbackglfw(int code, const char* codeStr);

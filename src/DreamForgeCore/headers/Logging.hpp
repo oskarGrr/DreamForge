@@ -34,7 +34,7 @@ private:
     //The logger used by the application linking with the DLL.
     std::shared_ptr<spdlog::logger> m_gameAppLogger{nullptr};
     
-    spdlog::filename_t m_logFilePath {std::string("./jsquaredLog.txt")};
+    spdlog::filename_t m_logFilePath { std::string{"./DFLog.txt"} };
 public:
 
 //stdoutxxx() logs messages for every param by folding
