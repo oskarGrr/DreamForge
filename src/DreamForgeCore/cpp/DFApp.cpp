@@ -1,11 +1,10 @@
 #include <chrono>
 #include <iostream>
 
-#include <vulkan/vulkan.h>
-#include <glm/glm.hpp>
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "Window.hpp"
 #include "Scripting.hpp"
