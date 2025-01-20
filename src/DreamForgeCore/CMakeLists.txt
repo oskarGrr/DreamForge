@@ -74,6 +74,9 @@ target_link_libraries(${CORE_LIB_NAME} PRIVATE glfw)
 find_package(Vulkan REQUIRED)
 target_link_libraries(${CORE_LIB_NAME} PRIVATE Vulkan::Vulkan)
 
+find_package(unofficial-shaderc CONFIG REQUIRED)
+target_link_libraries(${CORE_LIB_NAME} PRIVATE unofficial::shaderc::shaderc)
+
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
     find_library(MONO_RUNTIME mono-2.0-sgen.lib REQUIRED HINTS "$ENV{ProgramFiles}\\Mono\\lib")
 	target_include_directories(${CORE_LIB_NAME} PRIVATE "$ENV{ProgramFiles}\\Mono\\include\\mono-2.0")
