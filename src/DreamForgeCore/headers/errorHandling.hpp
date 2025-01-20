@@ -14,16 +14,20 @@
 //Absolute path of the top level CMakeLists.txt as a string literal.
 #define TOP_LEVEL_CMAKE_STR EXPAND_STRINGIZE(TOP_LEVEL_CMAKE)
 
-class DFError;
+namespace DF
+{
+
+class Error;
 
 template <typename ExpectedType>
-using DFExpect = std::expected<ExpectedType, DFError>;
+using Expect = std::expected<ExpectedType, Error>;
 
 template <typename OptionalType>
 using DFMaybeRef = std::optional< std::reference_wrapper<OptionalType> >;
 
+
 //Could be used as the error part of std::expected, or just used directly.
-class [[nodiscard("don't forget your error code!")]] DFError
+class [[nodiscard("don't forget your error code!")]] Error
 {
 public:
 
@@ -33,7 +37,7 @@ public:
         MAX_ENTITIES_REACHED
     };
 
-    DFError(Code code) : m_code{code} {}
+    Error(Code code) : m_code{code} {}
 
     Code getErrCode() const {return m_code;}
     std::string_view getStr() const;
@@ -43,3 +47,6 @@ private:
 };
 
 void errorHandlerCallbackglfw(int code, const char* codeStr);
+
+}
+

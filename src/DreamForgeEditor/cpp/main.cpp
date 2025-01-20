@@ -1,8 +1,14 @@
 #include <memory>
-#include "DreamForge.hpp"
 #include <iostream>
 
-class EditorApp : public DreamForgeApp
+#include "DreamForge.hpp"
+#include "GUITheme.hpp"
+
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+
+class EditorApp : public DF::DreamForgeApp
 {
 public:
     EditorApp()=default;
@@ -12,6 +18,9 @@ public:
 int main(int argumentCount, char** argumentVector)
 {
     EditorApp app;
-    DFLog::get().stdoutInfo("hello from the editor app\n");
-    app.runApp();
+
+    DFE::themeLight();
+
+    DF::Logger::get().stdoutInfo("hello from the editor app\n");
+    app.run();
 }

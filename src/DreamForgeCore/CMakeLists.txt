@@ -8,7 +8,6 @@ set(HEADER_FILES
     headers/Scripting.hpp
     headers/Window.hpp
     interfaceHeaders/DreamForge.hpp
-    headers/themeTests.hpp
 )
 
 set(CPP_FILES
@@ -36,8 +35,9 @@ add_library(${CORE_LIB_NAME} SHARED
     ${ECS_SRC_FILES}
 )
 
-source_group(headers FILES ${HEADER_FILES})
+source_group(hpp FILES ${HEADER_FILES})
 source_group(ECS FILES ${ECS_SRC_FILES})
+source_group(cpp FILES ${CPP_FILES})
 
 #TODO For now the headers for the core dll will be public until I get around to sorting
 #them into interface/public/private folders. Some of the headers that will end up in the
@@ -46,26 +46,27 @@ source_group(ECS FILES ${ECS_SRC_FILES})
 target_include_directories(${CORE_LIB_NAME} PUBLIC headers)
 target_include_directories(${CORE_LIB_NAME} PUBLIC cpp/ECS)
 
+#Generates a #define DF_DEBUG when in debug builds.
 target_compile_definitions(${CORE_LIB_NAME} PRIVATE $<$<CONFIG:Debug>:DF_DEBUG>)
 
 #Used in headers that are shared with the application to enable/disable code
 #depending on if the header is #included from the app or the dll.
 target_compile_definitions(${CORE_LIB_NAME} PRIVATE DF_DLL_INTERNAL)
 
-target_compile_definitions(${CORE_LIB_NAME} PRIVATE -DTOP_LEVEL_CMAKE=${CMAKE_SOURCE_DIR})
+#target_compile_definitions(${CORE_LIB_NAME} PRIVATE -DTOP_LEVEL_CMAKE=${CMAKE_SOURCE_DIR})
 
 target_include_directories(${CORE_LIB_NAME} INTERFACE interfaceHeaders)
 
 set(CMAKE_FIND_DEBUG_MODE True)
+
+find_package(imgui CONFIG REQUIRED)
+target_link_libraries(${CORE_LIB_NAME} PUBLIC imgui::imgui)
 
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(${CORE_LIB_NAME} PRIVATE glm::glm)
 
 find_package(spdlog CONFIG REQUIRED)
 target_link_libraries(${CORE_LIB_NAME} PUBLIC spdlog::spdlog_header_only)
-
-find_package(imgui CONFIG REQUIRED)
-target_link_libraries(${CORE_LIB_NAME} PRIVATE imgui::imgui)
 
 find_package(glfw3 3.3 REQUIRED)
 target_link_libraries(${CORE_LIB_NAME} PRIVATE glfw)

@@ -5,6 +5,9 @@
 #include "Logging.hpp"
 #include "ECSEvents.hpp"
 
+namespace DF 
+{
+
 class ECS
 {
 public:
@@ -16,12 +19,12 @@ public:
     
     //Add an entity and optionally give it any number of components.
     template <typename ...ComponentTs>
-    DFExpect<Entity> addEntity()
+    Expect<Entity> addEntity()
     {
         auto maybeEntity = mEntityManager.makeEntity();
         if(!maybeEntity)
         {
-            DFLog::get().stdoutError(maybeEntity.error().getStr());
+            Logger::get().stdoutError(maybeEntity.error().getStr());
             return maybeEntity;
         }
 
@@ -66,3 +69,5 @@ private:
     ComponentManager mComponentManager;
     ECSEventBus mEventBus;
 };
+
+}

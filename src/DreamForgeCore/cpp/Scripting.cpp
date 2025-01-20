@@ -9,6 +9,9 @@
 #include "mono/jit/jit.h"
 #include "mono/metadata/assembly.h"
 
+namespace DF
+{
+
 ScriptingEngine::ScriptingEngine()
 {
     initMono();
@@ -27,7 +30,7 @@ std::unique_ptr<char[]> ScriptingEngine::readCILAssemblyBytes(
     {
         std::string errMsg {"Couldn't find the CIL assembly at\n"};
         errMsg.append(assemblyPath);
-        DFLog::get().stdoutInfo(errMsg);
+        Logger::get().stdoutInfo(errMsg);
         return nullptr;
     }
 
@@ -38,7 +41,7 @@ std::unique_ptr<char[]> ScriptingEngine::readCILAssemblyBytes(
     {
         std::string errMsg {"The file at "};
         errMsg.append(assemblyPath).append(" was empty");
-        DFLog::get().stdoutInfo(errMsg);
+        Logger::get().stdoutInfo(errMsg);
         return nullptr;
     }
 
@@ -61,7 +64,7 @@ MonoAssembly* ScriptingEngine::LoadCILAssembly(const std::string_view assemblyPa
     if(status != MONO_IMAGE_OK)
     {
         const char* errorMessage = mono_image_strerror(status);
-        DFLog::get().stdoutError(errorMessage);
+        Logger::get().stdoutError(errorMessage);
         return nullptr;
     }
 
@@ -84,14 +87,14 @@ void ScriptingEngine::initMono()
     m_rootDomainPtr = mono_jit_init("j^2JitDomain");
     if(!m_rootDomainPtr)
     {
-        DFLog::get().stdoutError("error durring mono_jit_init()");
+        Logger::get().stdoutError("error durring mono_jit_init()");
     }
     
     char appDomainName[]{"j^2appDomain"};
     m_appDomainPtr = mono_domain_create_appdomain(appDomainName, nullptr);
     if(!m_appDomainPtr)
     {
-        DFLog::get().stdoutError("error durring mono_domain_create_appdomain()");
+        Logger::get().stdoutError("error durring mono_domain_create_appdomain()");
     }
 
     mono_domain_set(m_appDomainPtr, true);
@@ -123,4 +126,6 @@ void ScriptingEngine::printCILTypes(MonoAssembly* const assembly)
 
         printf("%s.%s\n", nameSpace, name);
     }
+}
+
 }

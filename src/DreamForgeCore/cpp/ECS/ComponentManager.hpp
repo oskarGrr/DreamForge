@@ -6,6 +6,9 @@
 #include <cassert>
 #include <memory>
 
+namespace DF
+{
+
 //component manager
 class ComponentManager
 {
@@ -90,3 +93,5 @@ private:
     //The array of component arrays.
     std::array<ComponentArray_t, NUM_COMPONENT_TYPES> m_componentArrays;
 };
+
+}

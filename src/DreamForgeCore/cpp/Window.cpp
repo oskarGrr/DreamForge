@@ -2,11 +2,12 @@
 
 #include <GLFW/glfw3.h>
 
-#include "imgui.h"
 #include "Window.hpp"
-#include "themeTests.hpp"
 #include "Logging.hpp" 
 #include "errorHandling.hpp"
+
+namespace DF
+{
 
 Window::Window(int width, int height) : m_width{width}, m_height{height}
 {
@@ -38,16 +39,4 @@ bool Window::shouldClose() const
     return glfwWindowShouldClose(m_window);
 }
 
-void Window::setImGuiSettings()
-{
-    //TODO: modifiable themes in a settings menu.
-
-    //themeGreenDark();
-    //themeLight();
-    //themeSuperDark();
-    //themeDarkRedOrange();
-
-   /* auto& io = ImGui::GetIO();
-    io.Fonts->AddFontFromFileTTF("resources/fonts/ebrima.ttf", 16.0);
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;*/
 }

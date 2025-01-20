@@ -11,22 +11,26 @@
 //constuction might take place fist before Logger's leading to UB. 
 //So by delaying Logger's construction until get() is called the first time,
 //I can avoid any static initialization order fiascos :)
-class DF_DLL_API DFLog
+
+namespace DF 
+{
+
+class DF_DLL_API Logger
 {
 public:
-    static DFLog& get()
+    static Logger& get()
     {
-        static DFLog logger;
+        static Logger logger;
         return logger;
     }
 private:
-    DFLog();
-    ~DFLog();
+    Logger();
+    ~Logger();
     
-    DFLog(DFLog const&)=delete;
-    DFLog& operator=(DFLog const&)=delete;
-    DFLog(DFLog&&)=delete;
-    DFLog& operator=(DFLog&&)=delete;
+    Logger(Logger const&)=delete;
+    Logger& operator=(Logger const&)=delete;
+    Logger(Logger&&)=delete;
+    Logger& operator=(Logger&&)=delete;
 
     //The logger used from within the engine DLL.
     std::shared_ptr<spdlog::logger> m_internalLogger{nullptr};
@@ -89,3 +93,5 @@ public:
     }
 #endif
 };
+
+}//end namespace DF

@@ -21,15 +21,6 @@ auto& operator<<(std::ostream& os, glm::vec<R, VecType> const& vec)
     return os;
 }
 
-//SDL_Init called in Window ctor
-DreamForgeApp::DreamForgeApp()
-    : m_window{},
-      m_isAppRunning{true}
-{
-    std::srand(static_cast<unsigned>(std::time(nullptr)));
-    DFLog::get().stdoutInfo("Dream forge engine initialized");
-}
-
 static std::chrono::steady_clock::time_point renderBeginFrame()
 {
     const auto start = std::chrono::steady_clock::now();
@@ -52,14 +43,25 @@ static F64 renderEndFrame(std::chrono::steady_clock::time_point const frameStart
     return std::chrono::duration_cast<std::chrono::nanoseconds>(end - frameStartTime).count() / 1.0E9;
 }
 
-void DreamForgeApp::runApp()
+namespace DF
+{
+
+DreamForgeApp::DreamForgeApp()
+    : m_window{},
+      m_isAppRunning{true}
+{
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+    Logger::get().stdoutInfo("Dream forge engine initialized");
+}
+
+void DreamForgeApp::run()
 {
     U32 extensionCount {};
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
-    DFLog::get().fmtStdoutInfo("{} extensions supported", extensionCount);
+    Logger::get().fmtStdoutInfo("{} extensions supported", extensionCount);
 
-    ScriptingEngine scriptingEngine;   
+    ScriptingEngine scriptingEngine;
     ScriptingEngine::printCILTypes(scriptingEngine.LoadCILAssembly(
         "resources/testScripts/testDLL.dll"));
 
@@ -70,6 +72,8 @@ void DreamForgeApp::runApp()
 
         processWindowEvents();
 
+        
+
         dt = renderEndFrame(startTime);
     }
 }
@@ -78,3 +82,5 @@ void DreamForgeApp::processWindowEvents()
 {
     glfwPollEvents();
 }
+
+} //end namespace DF

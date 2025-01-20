@@ -4,6 +4,9 @@
 #include "mono/utils/mono-forward.h"
 #include <memory>//unique_ptr
 
+namespace DF
+{
+
 //Not a static singleton to avoid SIOF and other problems, but
 //there is still only meant to be 1 instantiation of a ScriptingEngine.
 class ScriptingEngine
@@ -26,3 +29,5 @@ private:
     MonoDomain*   m_appDomainPtr{nullptr};
     MonoAssembly* m_csharpEngineAPIAssembly{nullptr};
 };
+
+}

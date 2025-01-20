@@ -3,6 +3,9 @@
 #include <GLFW/glfw3.h>
 #include "HelpfulTypeAliases.hpp"
 
+namespace DF
+{
+
 //wrapper for SDL, SDL satellites, and imgui stuff.
 //Not a singleton to avoid problems in the future like SIOF,
 //but should only be instantiated once like a singleton.
@@ -35,3 +38,5 @@ private:
 
     void setImGuiSettings();
 };
+
+}

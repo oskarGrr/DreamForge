@@ -6,6 +6,9 @@
 #include "errorHandling.hpp"
 #include "HelpfulTypeAliases.hpp"
 
+namespace DF
+{
+
 class Entity
 {
 public:
@@ -38,7 +41,7 @@ public:
     inline static constexpr auto getMaxEntityCount() {return s_maxEntities;}
     inline auto getCurrentEntityCount() const {return m_currentEntityCount;}
     inline auto haveReachedMaxEntities() const {return m_currentEntityCount >= getMaxEntityCount();}
-    [[nodiscard("dont forget your entity")]] DFExpect<Entity> makeEntity();
+    [[nodiscard("dont forget your entity")]] Expect<Entity> makeEntity();
 
     void removeEntity();
 
@@ -47,3 +50,5 @@ private:
     std::array<Entity, s_maxEntities> m_entities{};
     size_t m_currentEntityCount{0};
 };
+
+}

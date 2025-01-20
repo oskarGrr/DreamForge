@@ -4,6 +4,9 @@
 #include <exception>
 #include <utility>
 
+namespace DF
+{
+
 ComponentManager::ComponentManager()
 {
     m_componentArrays[GetIDFromType<Transform>] = ArrayImpl<Transform>{};
@@ -74,13 +77,13 @@ bool ComponentManager::ArrayImpl<ComponentT>::insertDataCheck(Entity const& enti
 {
     if(m_entityToIdxMap.find(&entity) != m_entityToIdxMap.end())
     {
-        DFLog::get().stdoutError("attempted to add a component"
+        Logger::get().stdoutError("attempted to add a component"
             "to an entity more than once");
         return false;
     }
     if(m_size >= getCapacity())
     {
-        DFLog::get().stdoutError("attempted to insert into a full component array");
+        Logger::get().stdoutError("attempted to insert into a full component array");
         return false;
     }
 
@@ -145,4 +148,6 @@ DFMaybeRef<Entity> ComponentManager::ArrayImpl<ComponentT>::getComponent(
     }
 #endif
     return std::cref(m_array.get() + m_entityToIdxMap[&entity]);
+}
+
 }
