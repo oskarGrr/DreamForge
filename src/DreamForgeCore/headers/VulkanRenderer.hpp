@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <array>
 #include "VulkanDevice.hpp"
 
 class Window;
@@ -17,6 +18,9 @@ public:
     void update();
 
 private:
+
+    constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
+    U32 mCurrentFrame {0};
 
     Window const& mWindow;
 
@@ -37,23 +41,21 @@ private:
     VkShaderModule   mFragShaderModule {VK_NULL_HANDLE};
 
     VkCommandPool mCommandPool {VK_NULL_HANDLE};
-    VkCommandBuffer mCommandBuffer {VK_NULL_HANDLE};
+    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers;
 
-    VkSemaphore mImageAvailableSem {VK_NULL_HANDLE};
-    VkSemaphore mRenderFinishedSem {VK_NULL_HANDLE};
-    VkFence mInFlightFence {VK_NULL_HANDLE};
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mImageAvailableSem;
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSem;
+    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence;
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-    //init shader modules, graphics pipeline, and pipeline layout
-    void createPipeline();
-
-    void createImageViews();
-    void createRenderPass();
-    void createCommandPool();
-    void createCommandBuffer();
-    void createFramebuffers();
-    void createSwapChain();
+    void recordCommands(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    
+    void initPipeline();
+    void initImageViews();
+    void initRenderPass();
+    void initCommandPool();
+    void initCommandBuffers();
+    void initFramebuffers();
+    void initSwapChain();
     void createSynchronizationObjects();
     
 public:

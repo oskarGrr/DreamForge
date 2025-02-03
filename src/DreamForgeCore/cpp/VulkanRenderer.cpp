@@ -12,13 +12,13 @@ namespace DF
 
 VulkanRenderer::VulkanRenderer(Window const& wnd) : mWindow{wnd}, mDevice{wnd}
 {  
-    createSwapChain();
-    createImageViews();
-    createRenderPass();
-    createPipeline();
-    createFramebuffers();
-    createCommandPool();
-    createCommandBuffer();
+    initSwapChain();
+    initImageViews();
+    initRenderPass();
+    initPipeline();
+    initFramebuffers();
+    initCommandPool();
+    initCommandBuffers();
     createSynchronizationObjects();
 }
 
@@ -42,9 +42,12 @@ VulkanRenderer::~VulkanRenderer()
     vkDestroyPipelineLayout(device, mPipelineLayout, nullptr);
     vkDestroyPipeline(device, mGraphicsPipeline, nullptr);
 
-    vkDestroySemaphore(mDevice.getLogicalDevice(), mImageAvailableSem, nullptr);
-    vkDestroySemaphore(mDevice.getLogicalDevice(), mRenderFinishedSem, nullptr);
-    vkDestroyFence(mDevice.getLogicalDevice(), mInFlightFence, nullptr);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        vkDestroySemaphore(mDevice.getLogicalDevice(), mImageAvailableSem[i], nullptr);
+        vkDestroySemaphore(mDevice.getLogicalDevice(), mRenderFinishedSem[i], nullptr);
+        vkDestroyFence(mDevice.getLogicalDevice(), mInFlightFence[i], nullptr);
+    }
 }
 
 void VulkanRenderer::createSynchronizationObjects()
@@ -52,19 +55,7 @@ void VulkanRenderer::createSynchronizationObjects()
     VkSemaphoreCreateInfo const semCreateInfo {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     auto const device {mDevice.getLogicalDevice()};
 
-    if(auto res{vkCreateSemaphore(device, &semCreateInfo, nullptr, &mImageAvailableSem)}; 
-        res != VK_SUCCESS)
-    {
-        throw SystemInitException{"vkCreateSemaphore failed", res};
-    }
-
-    if(auto res{vkCreateSemaphore(device, &semCreateInfo, nullptr, &mRenderFinishedSem)};
-        res != VK_SUCCESS)
-    {
-        throw SystemInitException{"vkCreateSemaphore failed", res};
-    }
-
-    VkFenceCreateInfo const fenceInfo 
+    VkFenceCreateInfo const fenceInfo
     {
         .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 
@@ -72,11 +63,26 @@ void VulkanRenderer::createSynchronizationObjects()
         .flags = VK_FENCE_CREATE_SIGNALED_BIT 
     };
 
-    if(auto res{vkCreateFence(device, &fenceInfo, nullptr, &mInFlightFence)}; res != VK_SUCCESS)
-        throw SystemInitException{"vkCreateFence failed", res};
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        if(auto res{vkCreateSemaphore(device, &semCreateInfo, nullptr, &mImageAvailableSem[i])}; 
+            res != VK_SUCCESS)
+        {
+            throw SystemInitException{"vkCreateSemaphore failed", res};
+        }
+
+        if(auto res{vkCreateSemaphore(device, &semCreateInfo, nullptr, &mRenderFinishedSem[i])};
+            res != VK_SUCCESS)
+        {
+            throw SystemInitException{"vkCreateSemaphore failed", res};
+        }
+
+        if(auto res{vkCreateFence(device, &fenceInfo, nullptr, &mInFlightFence[i])}; res != VK_SUCCESS)
+            throw SystemInitException{"vkCreateFence failed", res}; 
+    }
 }
 
-void VulkanRenderer::createImageViews()
+void VulkanRenderer::initImageViews()
 {
     mSwapChainImageViews.resize(mSwapChainImages.size());
 
@@ -111,7 +117,7 @@ void VulkanRenderer::createImageViews()
     }
 }
 
-void VulkanRenderer::createRenderPass()
+void VulkanRenderer::initRenderPass()
 {
     auto const device {mDevice.getLogicalDevice()};
 
@@ -168,7 +174,7 @@ void VulkanRenderer::createRenderPass()
     }  
 }
 
-void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo
     {
@@ -226,38 +232,38 @@ void VulkanRenderer::update()
 {
     auto const device {mDevice.getLogicalDevice()};
     auto const graphicsQueue {mDevice.getGraphicsQueue()};
-
-    vkWaitForFences(device, 1, &mInFlightFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &mInFlightFence);
+    
+    vkWaitForFences(device, 1, &mInFlightFence[mCurrentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
 
     U32 imageIndex{0};
     vkAcquireNextImageKHR(device, mSwapChain, 
-        UINT64_MAX, mImageAvailableSem, VK_NULL_HANDLE, &imageIndex);
+        UINT64_MAX, mImageAvailableSem[mCurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
-    vkResetCommandBuffer(mCommandBuffer, 0);
-    recordCommandBuffer(mCommandBuffer, imageIndex);
+    vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
+    recordCommands(mCommandBuffers[mCurrentFrame], imageIndex);
 
     VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submitInfo
     {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &mImageAvailableSem,
+        .pWaitSemaphores = &mImageAvailableSem[mCurrentFrame],
         .pWaitDstStageMask = &waitStage,
         .commandBufferCount = 1,
-        .pCommandBuffers = &mCommandBuffer,
+        .pCommandBuffers = &mCommandBuffers[mCurrentFrame],
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &mRenderFinishedSem,
+        .pSignalSemaphores = &mRenderFinishedSem[mCurrentFrame],
     };
 
-    if(auto res{vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence)}; res != VK_SUCCESS)
+    if(auto res{vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence[mCurrentFrame])}; res != VK_SUCCESS)
         throw DFException{"vkQueueSubmit failed", res};
 
     VkPresentInfoKHR presentInfo
     {
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
         .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &mRenderFinishedSem,
+        .pWaitSemaphores = &mRenderFinishedSem[mCurrentFrame],
         .swapchainCount = 1,
         .pSwapchains = &mSwapChain,
         .pImageIndices = &imageIndex,
@@ -265,26 +271,28 @@ void VulkanRenderer::update()
     };
 
     vkQueuePresentKHR(mDevice.getPresentQueue(), &presentInfo);
+
+    mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void VulkanRenderer::createCommandBuffer()
+void VulkanRenderer::initCommandBuffers()
 {
     VkCommandBufferAllocateInfo const commandBuffAllocInfo
     {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = mCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1
+        .commandBufferCount = mCommandBuffers.size()
     };
 
     if(auto res{vkAllocateCommandBuffers(mDevice.getLogicalDevice(), 
-        &commandBuffAllocInfo, &mCommandBuffer)}; res != VK_SUCCESS)
+        &commandBuffAllocInfo, mCommandBuffers.data())}; res != VK_SUCCESS)
     {
         throw SystemInitException{"vkAllocateCommandBuffers failed", res};
     }
 }
 
-void VulkanRenderer::createCommandPool()
+void VulkanRenderer::initCommandPool()
 {
     auto const device {mDevice.getLogicalDevice()};
     auto queueFamilyIndices {mDevice.getQueueFamilyIndices()};
@@ -304,7 +312,7 @@ void VulkanRenderer::createCommandPool()
     }
 }
 
-void VulkanRenderer::createFramebuffers()
+void VulkanRenderer::initFramebuffers()
 {
     mSwapChainFramebuffers.resize(mSwapChainImageViews.size());
 
@@ -388,7 +396,7 @@ static VkSurfaceFormatKHR chooseSwapChainSurfaceFormat(std::span<const VkSurface
     return availableFormats[0];
 }
 
-void VulkanRenderer::createSwapChain()
+void VulkanRenderer::initSwapChain()
 {
     VulkanDevice::SwapChainSupportDetails swapChainSupportInfo;
     mDevice.getSwapChainSupportInfo(swapChainSupportInfo);
@@ -518,7 +526,7 @@ static VkShaderModule compileGLSLShaders(VkDevice device, std::string_view shade
     return createShaderModule(compilationResult.cbegin(), spirVlen, device);
 }
 
-void VulkanRenderer::createPipeline()
+void VulkanRenderer::initPipeline()
 {
     auto const device {mDevice.getLogicalDevice()};
 
