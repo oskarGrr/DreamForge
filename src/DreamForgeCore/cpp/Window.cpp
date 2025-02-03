@@ -1,5 +1,7 @@
 #include <iostream>
 
+#define GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include "Window.hpp"
@@ -9,7 +11,7 @@
 namespace DF
 {
 
-Window::Window(int width, int height) : m_width{width}, m_height{height}
+Window::Window(int width, int height) : mWidth{width}, mHeight{height}
 {
     glfwInit();
 
@@ -18,25 +20,33 @@ Window::Window(int width, int height) : m_width{width}, m_height{height}
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    m_window = glfwCreateWindow(m_width, m_height, m_title, nullptr, nullptr);
-
-    //setImGuiSettings();
+    mWindow = glfwCreateWindow(mWidth, mHeight, mTitle, nullptr, nullptr);
 }
 
 Window::~Window()
 {
-    glfwDestroyWindow(this->m_window);
+    glfwDestroyWindow(this->mWindow);
     glfwTerminate();
+}
+
+VkSurfaceKHR Window::createVulkanSurface(VkInstance instance) const
+{
+    VkSurfaceKHR retval {VK_NULL_HANDLE};
+
+    if(glfwCreateWindowSurface(instance, mWindow, nullptr, &retval) != VK_SUCCESS)
+        throw SystemInitException("could not create vulkan surface with glfwCreateWindowSurface");
+
+    return retval;
 }
 
 void Window::maximize()
 {
-    glfwMaximizeWindow(m_window);
+    glfwMaximizeWindow(mWindow);
 }
 
 bool Window::shouldClose() const
 {
-    return glfwWindowShouldClose(m_window);
+    return glfwWindowShouldClose(mWindow);
 }
 
 }

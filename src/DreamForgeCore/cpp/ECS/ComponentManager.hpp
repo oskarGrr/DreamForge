@@ -5,6 +5,7 @@
 #include <array>
 #include <cassert>
 #include <memory>
+#include <unordered_map>
 
 namespace DF
 {
@@ -51,7 +52,7 @@ private:
 
         inline constexpr auto getSize() const {return m_size;}
         inline constexpr auto getCapacity() const {return m_array.size();}
-        [[nodiscard]] DFMaybeRef<Entity> getComponent(Entity const & entity) const;
+        [[nodiscard]] NonOwningPtr<Entity> getComponent(Entity const& entity) const;
         void insert(ComponentT const&, Entity const&);
         void erase(Entity const&);
 

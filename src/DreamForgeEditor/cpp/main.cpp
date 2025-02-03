@@ -19,7 +19,7 @@ int main(int argumentCount, char** argumentVector)
 {
     EditorApp app;
 
-    DFE::themeLight();
+    //DFE::themeLight();
 
     DF::Logger::get().stdoutInfo("hello from the editor app\n");
     app.run();

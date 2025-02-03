@@ -1,6 +1,10 @@
 #pragma once
 #include <cstdint>
+
+#define GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
 #include "HelpfulTypeAliases.hpp"
 
 namespace DF
@@ -24,19 +28,21 @@ public:
     Window& operator=(Window const&)=delete;
     Window& operator=(Window&&)=delete;
 
+    VkSurfaceKHR createVulkanSurface(VkInstance instance) const;
+
     void maximize();
 
-    auto getWidth()  const {return m_width;}
-    auto getHeight() const {return m_height;}
+    auto getWidth()  const {return mWidth;}
+    auto getHeight() const {return mHeight;}
+
+    GLFWwindow* getRawWindow() const {return mWindow;}
 
     bool shouldClose() const;
 
 private:
-    GLFWwindow* m_window {nullptr};
-    const char* const m_title {"Dream Forge"};
-    int m_width, m_height;
-
-    void setImGuiSettings();
+    GLFWwindow* mWindow {nullptr};
+    const char* const mTitle {"Dream Forge"};
+    int mWidth, mHeight;
 };
 
 }

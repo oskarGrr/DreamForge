@@ -33,7 +33,7 @@ template<class ComponentT> template<class ...Args>
 void ComponentManager::ArrayImpl<ComponentT>::emplace(
     Entity const& entity, Args&& ...ctorArgs)
 {
-#ifdef JSQRD_DEBUG
+#ifdef DF_DEBUG
     if(!insertDataCheck()) {return;}
 #endif
     
@@ -52,7 +52,7 @@ template <class ComponentT>
 void ComponentManager::ArrayImpl<ComponentT>::insert(ComponentT&& toInsert, 
     Entity const& entity)
 {
-#ifdef JSQRD_DEBUG
+#ifdef DF_DEBUG
     if(!insertDataCheck()) {return;}
 #endif
     m_array[m_size] = std::move(toInsert);
@@ -63,7 +63,7 @@ template<class ComponentT>
 void ComponentManager::ArrayImpl<ComponentT>::insert(ComponentT const& toInsert,
     Entity const& entity)
 {
-#ifdef JSQRD_DEBUG
+#ifdef DF_DEBUG
     if(!insertDataCheck()) {return;}
 #endif
     m_array[m_size] = toInsert;
@@ -103,17 +103,17 @@ void ComponentManager::ArrayImpl<ComponentT>::updateMapsOnInsert(
 template<class ComponentT>
 void ComponentManager::ArrayImpl<ComponentT>::erase(Entity const& entity)
 {
-#ifdef JSQRD_DEBUG
+#ifdef DF_DEBUG
     if(m_size == 0)
     {
-        JsLog::get().stdoutError("trying to call " 
+        Logger::get().stdoutError("trying to call " 
             "ComponentManager::ArrayImpl::eraseAt() from an empty component array");
         return;
     }
 
     if(m_entityToIdxMap.find(&entity) == m_entityToIdxMap.end())
     {
-        JsLog::get().stdoutError("invalid entity supplied to "
+        Logger::get().stdoutError("invalid entity supplied to "
             "ComponentManager::ArrayImpl::erase()");
         return;
     }
@@ -136,13 +136,12 @@ void ComponentManager::ArrayImpl<ComponentT>::erase(Entity const& entity)
 }
 
 template <typename ComponentT> [[nodiscard]]
-DFMaybeRef<Entity> ComponentManager::ArrayImpl<ComponentT>::getComponent(
-    Entity const& entity) const
+NonOwningPtr<Entity> ComponentManager::ArrayImpl<ComponentT>::getComponent(Entity const& entity) const
 {
-#ifdef JSQRD_DEBUG
+#ifdef DF_DEBUG
     if(m_entityToIdxMap.find(&entity) == m_entityToIdxMap.end())
     {
-        JsLog::get().stdoutError("requesting a component from ComponentManager::ArrayImpl"
+        Logger::get().stdoutError("requesting a component from ComponentManager::ArrayImpl"
             "<ComponentT>::getComponent() with an entity that doesnt have this component");
         return std::nullopt;
     }

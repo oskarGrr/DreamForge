@@ -1,10 +1,13 @@
 #include <chrono>
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <shaderc/shaderc.hpp>
 
 #include "Window.hpp"
 #include "Scripting.hpp"
@@ -13,6 +16,7 @@
 #include "Components.hpp"
 #include "HelpfulTypeAliases.hpp"
 #include "ECS.hpp"
+#include "errorHandling.hpp"
 
 template <typename VecType, U32 R>
 auto& operator<<(std::ostream& os, glm::vec<R, VecType> const& vec)
@@ -29,6 +33,9 @@ static std::chrono::steady_clock::time_point renderBeginFrame()
     //ImGui::NewFrame();
     //SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     //SDL_RenderClear(renderer);
+
+    
+
 
     return start;
 }
@@ -47,32 +54,32 @@ namespace DF
 {
 
 DreamForgeApp::DreamForgeApp()
-    : m_window{},
-      m_isAppRunning{true}
+    try
+    : mWindow{},
+      mIsAppRunning{true}
 {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
-    Logger::get().stdoutInfo("Dream forge engine initialized");
-}
-
-void DreamForgeApp::run()
-{
-    U32 extensionCount {};
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-    Logger::get().fmtStdoutInfo("{} extensions supported", extensionCount);
 
     ScriptingEngine scriptingEngine;
     ScriptingEngine::printCILTypes(scriptingEngine.LoadCILAssembly(
         "resources/testScripts/testDLL.dll"));
 
+    Logger::get().stdoutInfo("Dream forge engine initialized");
+}
+catch(SystemInitException const& e)
+{
+    Logger::get().stdoutError(e.what());
+}
+
+void DreamForgeApp::run()
+{
     F64 dt{0.0};
-    while( ! m_window.shouldClose() )
+    while( ! mWindow.shouldClose() )
     {
         auto startTime { renderBeginFrame() };
 
         processWindowEvents();
-
-        
+        mRenderer.update();
 
         dt = renderEndFrame(startTime);
     }

@@ -2,6 +2,7 @@
 
 #include "Window.hpp"
 #include "df_export.hpp"
+#include "VulkanRenderer.hpp"
 
 namespace DF
 {
@@ -22,8 +23,9 @@ public:
     void processWindowEvents();
 
 private:
-    Window m_window;
-    bool m_isAppRunning;
+    bool mIsAppRunning;
+    Window mWindow;
+    VulkanRenderer mRenderer {mWindow};
 };
 
 }

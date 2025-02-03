@@ -18,12 +18,15 @@ namespace DF
 class DF_DLL_API Logger
 {
 public:
+
     static Logger& get()
     {
         static Logger logger;
         return logger;
     }
+
 private:
+
     Logger();
     ~Logger();
     
@@ -32,13 +35,14 @@ private:
     Logger(Logger&&)=delete;
     Logger& operator=(Logger&&)=delete;
 
-    //The logger used from within the engine DLL.
+    //The logger that is used from within the engine DLL.
     std::shared_ptr<spdlog::logger> m_internalLogger{nullptr};
     
-    //The logger used by the application linking with the DLL.
+    //The logger that is used by the application linking with the DLL.
     std::shared_ptr<spdlog::logger> m_gameAppLogger{nullptr};
     
     spdlog::filename_t m_logFilePath { std::string{"./DFLog.txt"} };
+
 public:
 
 //stdoutxxx() logs messages for every param by folding

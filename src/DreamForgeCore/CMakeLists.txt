@@ -8,6 +8,8 @@ set(HEADER_FILES
     headers/Scripting.hpp
     headers/Window.hpp
     interfaceHeaders/DreamForge.hpp
+	headers/VulkanDevice.hpp
+	headers/VulkanRenderer.hpp
 )
 
 set(CPP_FILES
@@ -16,6 +18,8 @@ set(CPP_FILES
     cpp/DFApp.cpp
     cpp/Scripting.cpp
     cpp/Window.cpp
+	cpp/VulkanDevice.cpp
+	cpp/VulkanRenderer.cpp
 )
 
 set(ECS_SRC_FILES
