@@ -25,7 +25,7 @@ Window::Window(int width, int height) : mWidth{width}, mHeight{height}
     glfwSetErrorCallback(errorHandlerCallbackglfw);
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     mWindow = glfwCreateWindow(mWidth, mHeight, mTitle, nullptr, nullptr);
 
     glfwSetWindowUserPointer(mWindow, &mFrameBuffResized);
