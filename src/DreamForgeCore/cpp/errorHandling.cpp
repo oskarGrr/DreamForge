@@ -29,8 +29,7 @@ void errorHandlerCallbackglfw(int code, const char* codeStr)
 
 char const* DFException::what() const
 {
-    std::string exceptInfo {mErrorInfo};
-    return nullptr;
+    return mErrorInfo.c_str();
 }
 
 }
