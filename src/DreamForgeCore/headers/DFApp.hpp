@@ -22,6 +22,8 @@ public:
 
     void processWindowEvents();
 
+    glm::vec<2, double> getMouseCoords();
+
 private:
     bool mIsAppRunning;
     Window mWindow;

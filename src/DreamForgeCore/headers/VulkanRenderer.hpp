@@ -2,6 +2,7 @@
 #include <vector>
 #include <array>
 #include "VulkanDevice.hpp"
+#include <glm/glm.hpp>
 
 class Window;
 
@@ -12,17 +13,17 @@ class VulkanRenderer
 {
 public:
     
-    VulkanRenderer(Window const& wnd);
+    VulkanRenderer(Window& wnd);
     ~VulkanRenderer();
 
-    void update();
+    void update(F64 deltaTime, glm::vec<2, double> mousePos);
 
 private:
 
     constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
     U32 mCurrentFrame {0};
 
-    Window const& mWindow;
+    Window& mWindow;
 
     VulkanDevice mDevice;
 
@@ -35,6 +36,15 @@ private:
 
     VkRenderPass mRenderPass {VK_NULL_HANDLE};
     
+    struct fragShaderPushConstants 
+    {
+        float increasingTimeSeconds{};
+        U32 width{};
+        U32 height{};
+        float mousePosX{};
+        float mousePosY{};
+    };
+
     VkPipelineLayout mPipelineLayout   {VK_NULL_HANDLE};
     VkPipeline       mGraphicsPipeline {VK_NULL_HANDLE};
     VkShaderModule   mVertShaderModule {VK_NULL_HANDLE};
@@ -47,7 +57,8 @@ private:
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSem;
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence;
 
-    void recordCommands(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommands(VkCommandBuffer commandBuffer, 
+        uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
     
     void initPipeline();
     void initImageViews();
@@ -57,6 +68,10 @@ private:
     void initFramebuffers();
     void initSwapChain();
     void createSynchronizationObjects();
+
+    void cleanupSwapChain();
+    void recreateSwapChain();
+
     
 public:
     VulkanRenderer(VulkanRenderer const&)=delete;

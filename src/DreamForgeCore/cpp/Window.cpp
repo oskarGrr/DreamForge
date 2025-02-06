@@ -11,6 +11,12 @@
 namespace DF
 {
 
+static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
+{
+    bool* frameBuffResizedFlag = static_cast<bool*>(glfwGetWindowUserPointer(window));
+    *frameBuffResizedFlag = true;
+}
+
 Window::Window(int width, int height) : mWidth{width}, mHeight{height}
 {
     glfwInit();
@@ -21,6 +27,9 @@ Window::Window(int width, int height) : mWidth{width}, mHeight{height}
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     mWindow = glfwCreateWindow(mWidth, mHeight, mTitle, nullptr, nullptr);
+
+    glfwSetWindowUserPointer(mWindow, &mFrameBuffResized);
+    glfwSetFramebufferSizeCallback(mWindow, framebufferResizeCallback);
 }
 
 Window::~Window()

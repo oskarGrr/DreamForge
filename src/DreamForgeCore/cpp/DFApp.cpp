@@ -66,7 +66,7 @@ DreamForgeApp::DreamForgeApp()
 
     Logger::get().stdoutInfo("Dream forge engine initialized");
 }
-catch(SystemInitException const& e)
+catch(std::exception const& e)
 {
     Logger::get().stdoutError(e.what());
 }
@@ -79,7 +79,7 @@ void DreamForgeApp::run()
         auto startTime { renderBeginFrame() };
 
         processWindowEvents();
-        mRenderer.update();
+        mRenderer.update(dt, getMouseCoords());
 
         dt = renderEndFrame(startTime);
     }
@@ -88,6 +88,13 @@ void DreamForgeApp::run()
 void DreamForgeApp::processWindowEvents()
 {
     glfwPollEvents();
+}
+
+glm::vec<2, double> DreamForgeApp::getMouseCoords()
+{
+    double x, y;
+    glfwGetCursorPos(mWindow.getRawWindow(), &x, &y);
+    return {x, y};
 }
 
 } //end namespace DF

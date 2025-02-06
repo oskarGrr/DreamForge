@@ -10,7 +10,7 @@
 namespace DF
 {
 
-VulkanRenderer::VulkanRenderer(Window const& wnd) : mWindow{wnd}, mDevice{wnd}
+VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
 {  
     initSwapChain();
     initImageViews();
@@ -28,13 +28,7 @@ VulkanRenderer::~VulkanRenderer()
 
     vkDeviceWaitIdle(device);
 
-    for(auto imageView : mSwapChainImageViews)
-        vkDestroyImageView(device, imageView, nullptr);
-
-    for(auto framebuffer : mSwapChainFramebuffers)
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-
-    vkDestroySwapchainKHR(device, mSwapChain, nullptr);
+    cleanupSwapChain();
     vkDestroyRenderPass(device, mRenderPass, nullptr);
     vkDestroyShaderModule(device, mFragShaderModule, nullptr);
     vkDestroyShaderModule(device, mVertShaderModule, nullptr);
@@ -170,11 +164,12 @@ void VulkanRenderer::initRenderPass()
     if(auto res{vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPass)};
         res != VK_SUCCESS)
     {
-        throw SystemInitException{"vkCreateRenderPass failed "};
+        throw SystemInitException{"vkCreateRenderPass failed ", res};
     }  
 }
 
-void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer, 
+    uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos)
 {
     VkCommandBufferBeginInfo beginInfo
     {
@@ -221,56 +216,104 @@ void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer, uint32_t imag
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    static F32 incTime{0.0f};
+    incTime += deltaTime;
+
+    fragShaderPushConstants pushConstants
+    {
+        .increasingTimeSeconds = incTime,
+        .width = mSwapChainExtent.width,
+        .height = mSwapChainExtent.height,
+        .mousePosX = (float)mousePos.x,
+        .mousePosY = (float)mousePos.y
+    };
+
+    vkCmdPushConstants(commandBuffer, mPipelineLayout,
+        VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof fragShaderPushConstants, &pushConstants);
+
+    vkCmdDraw(commandBuffer, 6, 1, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
 
     if(auto res{vkEndCommandBuffer(commandBuffer)}; res != VK_SUCCESS)
         throw DFException{"vkEndCommandBuffer failed", res};
 }
 
-void VulkanRenderer::update()
+void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
 {
     auto const device {mDevice.getLogicalDevice()};
     auto const graphicsQueue {mDevice.getGraphicsQueue()};
     
+    //wait on mInFlightFence[mCurrentFrame] to be signaled, which indicates that the graphics queue
+    //is done with mCommandBuffers[mCurrentFrame], and it can now be recorded to again.
     vkWaitForFences(device, 1, &mInFlightFence[mCurrentFrame], VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
-
     U32 imageIndex{0};
-    vkAcquireNextImageKHR(device, mSwapChain, 
-        UINT64_MAX, mImageAvailableSem[mCurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
+    {
+        auto const res = vkAcquireNextImageKHR(device, mSwapChain, 
+            UINT64_MAX, mImageAvailableSem[mCurrentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        if(res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+            throw DFException{"vkAcquireNextImageKHR failed", res};
+
+        if(res == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            recreateSwapChain();
+            return;
+        }
+    }
+    
+    vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
     vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
-    recordCommands(mCommandBuffers[mCurrentFrame], imageIndex);
+    recordCommands(mCommandBuffers[mCurrentFrame], imageIndex, deltaTime, mousePos);
 
-    VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    VkSubmitInfo submitInfo
     {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &mImageAvailableSem[mCurrentFrame],
-        .pWaitDstStageMask = &waitStage,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &mCommandBuffers[mCurrentFrame],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &mRenderFinishedSem[mCurrentFrame],
-    };
+        VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        VkSubmitInfo submitInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &mImageAvailableSem[mCurrentFrame],
+            .pWaitDstStageMask = &waitStage,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &mCommandBuffers[mCurrentFrame],
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &mRenderFinishedSem[mCurrentFrame],
+        };
 
-    if(auto res{vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence[mCurrentFrame])}; res != VK_SUCCESS)
-        throw DFException{"vkQueueSubmit failed", res};
+        //submit work on the graphics queue, and once that work is complete singal mInFlightFence[mCurrentFrame]
+        if(auto res{vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence[mCurrentFrame])}; 
+            res != VK_SUCCESS)
+        {
+            throw DFException{"vkQueueSubmit failed", res};
+        }
+    }
 
-    VkPresentInfoKHR presentInfo
     {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &mRenderFinishedSem[mCurrentFrame],
-        .swapchainCount = 1,
-        .pSwapchains = &mSwapChain,
-        .pImageIndices = &imageIndex,
-        //.pResults = nullptr
-    };
+        VkPresentInfoKHR presentInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &mRenderFinishedSem[mCurrentFrame],
+            .swapchainCount = 1,
+            .pSwapchains = &mSwapChain,
+            .pImageIndices = &imageIndex,
+            //.pResults = nullptr
+        };
 
-    vkQueuePresentKHR(mDevice.getPresentQueue(), &presentInfo);
+        if(auto res {vkQueuePresentKHR(mDevice.getPresentQueue(), &presentInfo)})
+        {
+            if(res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR
+                || mWindow.wasFrameBuffResized())
+            {
+                mWindow.resetFrameBuffResizedFlag();
+                recreateSwapChain();
+            }
+            else if(res != VK_SUCCESS)
+            {
+                throw DFException{"vkQueuePresentKHR failed", res};
+            }
+        }
+    }
 
     mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -282,7 +325,7 @@ void VulkanRenderer::initCommandBuffers()
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = mCommandPool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = mCommandBuffers.size()
+        .commandBufferCount = static_cast<U32>(mCommandBuffers.size())
     };
 
     if(auto res{vkAllocateCommandBuffers(mDevice.getLogicalDevice(), 
@@ -310,6 +353,38 @@ void VulkanRenderer::initCommandPool()
     {
         throw SystemInitException{"vkCreateCommandPool failed", res};
     }
+
+}
+
+void VulkanRenderer::cleanupSwapChain()
+{
+    auto device { mDevice.getLogicalDevice() };
+
+    for(auto framebuffer : mSwapChainFramebuffers)
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+
+    for(auto imageView : mSwapChainImageViews)
+        vkDestroyImageView(device, imageView, nullptr);
+
+    vkDestroySwapchainKHR(device, mSwapChain, nullptr);
+}
+
+void VulkanRenderer::recreateSwapChain()
+{
+    auto device { mDevice.getLogicalDevice() };
+
+    auto frameBuffSize = mWindow.getFBSize();
+    while(frameBuffSize.x == 0 || frameBuffSize.y == 0)
+    {
+        frameBuffSize = mWindow.getFBSize();
+        glfwWaitEvents();
+    }
+
+    vkDeviceWaitIdle(device);
+
+    initSwapChain();
+    initImageViews();
+    initFramebuffers();
 }
 
 void VulkanRenderer::initFramebuffers()
@@ -386,13 +461,13 @@ static VkSurfaceFormatKHR chooseSwapChainSurfaceFormat(std::span<const VkSurface
 
     for(auto const& availableFormat : availableFormats) 
     {
-        if(availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && 
+        if(availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && 
             availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
             return availableFormat;
         }
-    }
-
+    }   
+    
     return availableFormats[0];
 }
 
@@ -429,7 +504,7 @@ void VulkanRenderer::initSwapChain()
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
         .clipped = VK_TRUE,
-        .oldSwapchain = VK_NULL_HANDLE,
+        .oldSwapchain = mSwapChain,
     };
 
     VulkanDevice::QueueFamilyIndices indices {mDevice.getQueueFamilyIndices()};
@@ -532,18 +607,25 @@ void VulkanRenderer::initPipeline()
 
     Logger::get().stdoutInfo("Compiling shaders...");
 
+    const auto start = std::chrono::steady_clock::now();
+
     //TODO directory iterator and compile anything that has the right extension and also check time stamps
-    mVertShaderModule = compileGLSLShaders(device, 
+    mVertShaderModule = compileGLSLShaders(device,
         "resources/shaders/triangleTest.vert", shaderc_vertex_shader);
 
     if(mVertShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
 
     mFragShaderModule = compileGLSLShaders(device, 
-        "resources/shaders/triangleTest.frag", shaderc_fragment_shader);
+        "resources/shaders/MengerTunnel.frag", shaderc_fragment_shader);
 
     if(mFragShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
+
+    const auto end = std::chrono::steady_clock::now();
+
+    Logger::get().fmtStdoutWarn("compiling glsl to Spir-V took {} seconds", 
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / 1.0E9);
 
     std::array shaderStages
     {
@@ -667,13 +749,20 @@ void VulkanRenderer::initPipeline()
     //colorBlending.blendConstants[2] = 0.0f,
     //colorBlending.blendConstants[3] = 0.0f
 
+    VkPushConstantRange const pushConstantRange
+    {
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .offset = 0,
+        .size = sizeof fragShaderPushConstants
+    };
+
     VkPipelineLayoutCreateInfo const pipelineLayoutInfo
     {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 0,
         .pSetLayouts = nullptr,
-        .pushConstantRangeCount = 0,
-        .pPushConstantRanges = nullptr
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstantRange
     };
 
     if(auto res{vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &mPipelineLayout)};

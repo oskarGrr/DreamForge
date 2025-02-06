@@ -4,6 +4,7 @@
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "HelpfulTypeAliases.hpp"
 
@@ -23,11 +24,6 @@ public:
     Window(int width = INITIAL_WINDOW_WIDTH, int height = INITIAL_WINDOW_HEIGHT);
     ~Window();
 
-    Window(Window const&)=delete;
-    Window(Window&&)=delete;
-    Window& operator=(Window const&)=delete;
-    Window& operator=(Window&&)=delete;
-
     VkSurfaceKHR createVulkanSurface(VkInstance instance) const;
 
     void maximize();
@@ -37,12 +33,29 @@ public:
 
     GLFWwindow* getRawWindow() const {return mWindow;}
 
+    glm::vec<2, int> getFBSize() const
+    {
+        int x{0}, y{0};
+        glfwGetFramebufferSize(mWindow, &x, &y); 
+        return {x,y};
+    }
+
+    bool wasFrameBuffResized() const {return mFrameBuffResized;}
+    void resetFrameBuffResizedFlag() {mFrameBuffResized = false;}
+
     bool shouldClose() const;
 
 private:
     GLFWwindow* mWindow {nullptr};
     const char* const mTitle {"Dream Forge"};
     int mWidth, mHeight;
+    bool mFrameBuffResized {false};
+
+public:
+    Window(Window const&)=delete;
+    Window(Window&&)=delete;
+    Window& operator=(Window const&)=delete;
+    Window& operator=(Window&&)=delete;
 };
 
 }
