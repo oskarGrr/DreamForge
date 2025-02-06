@@ -27,7 +27,7 @@ private:
 
     VulkanDevice mDevice;
 
-    VkSwapchainKHR mSwapChain;
+    VkSwapchainKHR mSwapChain {VK_NULL_HANDLE};
     std::vector<VkFramebuffer> mSwapChainFramebuffers;
     std::vector<VkImageView> mSwapChainImageViews;
     std::vector<VkImage> mSwapChainImages;
