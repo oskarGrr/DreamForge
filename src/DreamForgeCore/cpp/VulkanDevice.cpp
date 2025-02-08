@@ -398,8 +398,8 @@ void VulkanDevice::createInstance(std::vector<const char*>& extensions)
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 
         .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-                          // VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
 
         .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
                        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
@@ -411,7 +411,7 @@ void VulkanDevice::createInstance(std::vector<const char*>& extensions)
     const char* layerName {"VK_LAYER_KHRONOS_validation"};
     instanceCreationInfo.enabledLayerCount = 1;
     instanceCreationInfo.ppEnabledLayerNames = &layerName;
-    instanceCreationInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugMessengerCreationInfo;
+    instanceCreationInfo.pNext = &debugMessengerCreationInfo;
     extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif //USE_VALIDATION_LAYERS
 

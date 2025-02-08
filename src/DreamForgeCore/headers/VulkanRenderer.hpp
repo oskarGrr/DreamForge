@@ -104,13 +104,14 @@ private:
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSem;
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence;
 
-    //ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
+    ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
 
     void recordCommands(VkCommandBuffer commandBuffer, 
         uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
     
     U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);
 
+    
     void initPipeline();
     void initImageViews();
     void initRenderPass();
@@ -118,12 +119,16 @@ private:
     void initCommandBuffers();
     void initFramebuffers();
     void initSwapChain();
-    void createVertexBuffer();
+
     void createSynchronizationObjects();
 
     void cleanupSwapChain();
     void recreateSwapChain();
 
+    void createVertexBuffer();
+    void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
+        VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory);
     
 public:
     VulkanRenderer(VulkanRenderer const&)=delete;
