@@ -38,7 +38,6 @@ private:
 
             return bindingDescription;
         }
-
         
         static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() 
         {

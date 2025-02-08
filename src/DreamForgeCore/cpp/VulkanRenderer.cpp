@@ -20,6 +20,7 @@ VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
     initPipeline();
     initFramebuffers();
     initCommandPool();
+    createVertexBuffer();
     initCommandBuffers();
     createSynchronizationObjects();
 
@@ -254,7 +255,13 @@ void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer,
     vkCmdPushConstants(commandBuffer, mPipelineLayout,
         VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof fragShaderPushConstants, &pushConstants);
 
-    vkCmdDraw(commandBuffer, 6, 1, 0, 0);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+
+    VkBuffer vertexBuffers[] = {mVertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdDraw(commandBuffer, mVertices.size(), 1, 0, 0);
     vkCmdEndRenderPass(commandBuffer);
 
     if(auto res{vkEndCommandBuffer(commandBuffer)}; res != VK_SUCCESS)
@@ -626,8 +633,6 @@ void VulkanRenderer::createVertexBuffer()
     vkMapMemory(device, mVertexBufferMemory, 0, bufferInfo.size, 0, &mappedData);
     memcpy(mappedData, mVertices.data(), bufferInfo.size);
     vkUnmapMemory(device, mVertexBufferMemory);
-
-
 }
 
 [[nodiscard]]
@@ -710,7 +715,7 @@ void VulkanRenderer::initPipeline()
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
 
     mFragShaderModule = compileGLSLShaders(device, 
-        "resources/shaders/triangleTest.frag", shaderc_fragment_shader);
+        "resources/shaders/kishimisuTutorial.frag", shaderc_fragment_shader);
 
     if(mFragShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
