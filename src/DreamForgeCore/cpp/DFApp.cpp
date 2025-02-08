@@ -8,7 +8,11 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <shaderc/shaderc.hpp>
+#include <imgui.h>
+#include <imgui_impl_vulkan.h>
+#include <imgui_impl_glfw.h>
 
+#include "DFApp.hpp"
 #include "Window.hpp"
 #include "Scripting.hpp"
 #include "DFApp.hpp"
@@ -25,22 +29,26 @@ auto& operator<<(std::ostream& os, glm::vec<R, VecType> const& vec)
     return os;
 }
 
-static std::chrono::steady_clock::time_point renderBeginFrame()
+namespace DF
+{
+
+[[nodiscard]] std::chrono::steady_clock::time_point 
+DreamForgeApp::startOfLoop(double dt)
 {
     const auto start = std::chrono::steady_clock::now();
-    //ImGui_ImplSDLRenderer2_NewFrame();
-    //ImGui_ImplSDL2_NewFrame();
+
+    //ImGui_ImplVulkan_NewFrame();
+    //ImGui_ImplGlfw_NewFrame();
     //ImGui::NewFrame();
-    //SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    //SDL_RenderClear(renderer);
 
-    
+    mRenderer.update(dt, getMousePos());
 
+    processWindowEvents();
 
     return start;
 }
 
-static F64 renderEndFrame(std::chrono::steady_clock::time_point const frameStartTime)
+double DreamForgeApp::endOfLoop(std::chrono::steady_clock::time_point const frameStartTime)
 {
     //ImGui::Render();
     //ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
@@ -50,14 +58,15 @@ static F64 renderEndFrame(std::chrono::steady_clock::time_point const frameStart
     return std::chrono::duration_cast<std::chrono::nanoseconds>(end - frameStartTime).count() / 1.0E9;
 }
 
-namespace DF
-{
+
 
 DreamForgeApp::DreamForgeApp()
     try
     : mWindow{},
       mIsAppRunning{true}
 {
+    
+
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
     ScriptingEngine scriptingEngine;
@@ -73,15 +82,12 @@ catch(std::exception const& e)
 
 void DreamForgeApp::run()
 {
-    F64 dt{0.0};
+    double dt{0.0};
     while( ! mWindow.shouldClose() )
     {
-        auto startTime { renderBeginFrame() };
+        auto startTime {startOfLoop(dt)};
 
-        processWindowEvents();
-        mRenderer.update(dt, getMouseCoords());
-
-        dt = renderEndFrame(startTime);
+        dt = endOfLoop(startTime);
     }
 }
 
@@ -90,7 +96,7 @@ void DreamForgeApp::processWindowEvents()
     glfwPollEvents();
 }
 
-glm::vec<2, double> DreamForgeApp::getMouseCoords()
+glm::vec<2, double> DreamForgeApp::getMousePos()
 {
     double x, y;
     glfwGetCursorPos(mWindow.getRawWindow(), &x, &y);

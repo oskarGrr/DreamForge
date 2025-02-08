@@ -19,9 +19,11 @@ public:
     ~VulkanDevice();
 
     auto getLogicalDevice() const {return mLogicalDevice;}
+    auto getPhysicalDevice() const {return mPhysicalDevice;}
     auto getGraphicsQueue() const {return mGraphicsQueue;}
     auto getPresentQueue() const {return mPresentQueue;}
     auto getSurface() const {return mSurface;}
+    auto getInstance() const {return mInstance;}
 
     struct QueueFamilyIndices
     {

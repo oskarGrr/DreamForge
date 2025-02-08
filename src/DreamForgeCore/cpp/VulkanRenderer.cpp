@@ -3,6 +3,8 @@
 #include "Logging.hpp"
 #include "shaderc/shaderc.hpp"
 
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
 #include <filesystem>
 #include <fstream>
 #include <span>
@@ -20,6 +22,25 @@ VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
     initCommandPool();
     initCommandBuffers();
     createSynchronizationObjects();
+
+    //auto queueFamilies = mDevice.getQueueFamilyIndices();
+
+    //ImGui_ImplGlfw_InitForVulkan(mWindow.getRawWindow(), true);
+    //mImguiInitInfo.Instance = mDevice.getInstance();
+    //mImguiInitInfo.PhysicalDevice = mDevice.getPhysicalDevice();
+    //mImguiInitInfo.Device = mDevice.getLogicalDevice();
+    //mImguiInitInfo.QueueFamily = *queueFamilies.graphicsFamilyIndex;
+    //mImguiInitInfo.Queue = mDevice.getGraphicsQueue();
+    //mImguiInitInfo.PipelineCache = nullptr;
+    //mImguiInitInfo.DescriptorPool = nullptr;
+    //mImguiInitInfo.RenderPass = wd->RenderPass;
+    //mImguiInitInfo.Subpass = 0;
+    //mImguiInitInfo.MinImageCount = g_MinImageCount;
+    //mImguiInitInfo.ImageCount = wd->ImageCount;
+    //mImguiInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    //mImguiInitInfo.Allocator = g_Allocator;
+    //mImguiInitInfo.CheckVkResultFn = check_vk_result;
+    //ImGui_ImplVulkan_Init(&init_info);
 }
 
 VulkanRenderer::~VulkanRenderer()
@@ -29,6 +50,8 @@ VulkanRenderer::~VulkanRenderer()
     vkDeviceWaitIdle(device);
 
     cleanupSwapChain();
+    vkDestroyBuffer(device, mVertexBuffer, nullptr);
+    vkFreeMemory(device, mVertexBufferMemory, nullptr);
     vkDestroyRenderPass(device, mRenderPass, nullptr);
     vkDestroyShaderModule(device, mFragShaderModule, nullptr);
     vkDestroyShaderModule(device, mVertShaderModule, nullptr);
@@ -537,6 +560,76 @@ void VulkanRenderer::initSwapChain()
     mSwapChainExtent = extent;
 }
 
+[[nodiscard]] U32 VulkanRenderer::findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties physicalMemProperties{};
+    vkGetPhysicalDeviceMemoryProperties(mDevice.getPhysicalDevice(), &physicalMemProperties);
+
+    for(U32 i = 0; i < physicalMemProperties.memoryTypeCount; ++i)
+    {
+        if(typeFilter & (1 << i) &&
+            (physicalMemProperties.memoryTypes[i].propertyFlags & properties) == properties)
+        {
+            return i;
+        }
+    }
+
+    throw SystemInitException{"could not find a suitable physical memory type"};
+}
+
+void VulkanRenderer::createVertexBuffer()
+{
+    auto const device {mDevice.getLogicalDevice()};
+
+    VkBufferCreateInfo bufferInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        //.flags = 0,
+        .size = sizeof(mVertices[0]) * mVertices.size(),
+        .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+
+    if(auto res{vkCreateBuffer(device, &bufferInfo, nullptr, &mVertexBuffer)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"vkCreateBuffer failed", res};
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, mVertexBuffer, &memRequirements);
+
+    U32 memType {findMemoryType(memRequirements.memoryTypeBits, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)};
+
+    VkMemoryAllocateInfo allocInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memRequirements.size,
+        .memoryTypeIndex = memType
+    };
+
+    if(auto res {vkAllocateMemory(device, &allocInfo, nullptr, &mVertexBufferMemory)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"vkAllocateMemory failed", res};
+    }
+
+    if(auto res {vkBindBufferMemory(device, mVertexBuffer, mVertexBufferMemory, 0)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"vkBindBufferMemory failed", res};
+    }
+
+    //copy the data from mVertices onto the GPU
+    void* mappedData {nullptr};
+    vkMapMemory(device, mVertexBufferMemory, 0, bufferInfo.size, 0, &mappedData);
+    memcpy(mappedData, mVertices.data(), bufferInfo.size);
+    vkUnmapMemory(device, mVertexBufferMemory);
+
+
+}
+
 [[nodiscard]]
 static VkShaderModule createShaderModule(U32 const* const spirVCode, size_t spirVSize, VkDevice device)
 {
@@ -598,7 +691,7 @@ static VkShaderModule compileGLSLShaders(VkDevice device, std::string_view shade
     for(U32 [[maybe_unused]] dword : compilationResult)
         spirVlen += sizeof U32;
 
-    return createShaderModule(compilationResult.cbegin(), spirVlen, device);
+    return DF::createShaderModule(compilationResult.cbegin(), spirVlen, device);
 }
 
 void VulkanRenderer::initPipeline()
@@ -617,7 +710,7 @@ void VulkanRenderer::initPipeline()
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
 
     mFragShaderModule = compileGLSLShaders(device, 
-        "resources/shaders/MengerTunnel.frag", shaderc_fragment_shader);
+        "resources/shaders/triangleTest.frag", shaderc_fragment_shader);
 
     if(mFragShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
@@ -645,14 +738,19 @@ void VulkanRenderer::initPipeline()
         }
     };
 
-    //no vertex data for now (just testing)
+    VkVertexInputBindingDescription const bindingDescription{
+        Vertex::getBindingDescription()};
+
+    std::array<VkVertexInputAttributeDescription, 2> const attributeDescriptions{
+        Vertex::getAttributeDescriptions()};
+
     VkPipelineVertexInputStateCreateInfo vertexInputInfo
     {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        //.vertexBindingDescriptionCount = 0,
-        //.pVertexBindingDescriptions = nullptr,
-        //.vertexAttributeDescriptionCount = 0,
-        //.pVertexAttributeDescriptions = nullptr
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &bindingDescription,
+        .vertexAttributeDescriptionCount = (U32)attributeDescriptions.size(),
+        .pVertexAttributeDescriptions = attributeDescriptions.data()
     };
 
     std::vector<VkDynamicState> const dynamicStates {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
