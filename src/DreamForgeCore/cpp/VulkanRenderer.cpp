@@ -21,6 +21,7 @@ VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
     initFramebuffers();
     initCommandPool();
     createVertexBuffer();
+    createIndexBuffer();
     initCommandBuffers();
     createSynchronizationObjects();
 
@@ -50,8 +51,10 @@ VulkanRenderer::~VulkanRenderer()
     vkDeviceWaitIdle(device);
 
     cleanupSwapChain();
-    vkDestroyBuffer(device, mVertexBuffer, nullptr);
-    vkFreeMemory(device, mVertexBufferMemory, nullptr);
+    vkDestroyBuffer(device, mVertexBuff, nullptr);
+    vkFreeMemory(device, mVertexBuffMemory, nullptr);
+    vkDestroyBuffer(device, mIndexBuff, nullptr);
+    vkFreeMemory(device, mIndexBuffMemory, nullptr);
     vkDestroyRenderPass(device, mRenderPass, nullptr);
     vkDestroyShaderModule(device, mFragShaderModule, nullptr);
     vkDestroyShaderModule(device, mVertShaderModule, nullptr);
@@ -191,7 +194,7 @@ void VulkanRenderer::initRenderPass()
     }  
 }
 
-void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer, 
+void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer, 
     uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos)
 {
     VkCommandBufferBeginInfo beginInfo
@@ -201,7 +204,7 @@ void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer,
         //.pInheritanceInfo = nullptr
     };
 
-    if(auto res{vkBeginCommandBuffer(commandBuffer, &beginInfo)}; res != VK_SUCCESS)
+    if(auto res{vkBeginCommandBuffer(cmdBuffer, &beginInfo)}; res != VK_SUCCESS)
         throw DFException{"vkBeginCommandBuffer failed", res};
     
     VkRenderPassBeginInfo renderPassInfo
@@ -218,8 +221,8 @@ void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer,
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+    vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 
     VkViewport const viewport
     {
@@ -230,14 +233,14 @@ void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer,
         .minDepth = 0.0f,
         .maxDepth = 1.0f
     };
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
     
     VkRect2D const scissor
     {
         .offset = {0, 0},
         .extent = mSwapChainExtent
     };
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
     static F32 incTime{0.0f};
     incTime += deltaTime;
@@ -251,19 +254,20 @@ void VulkanRenderer::recordCommands(VkCommandBuffer commandBuffer,
         .mousePosY = (float)mousePos.y
     };
 
-    vkCmdPushConstants(commandBuffer, mPipelineLayout,
+    vkCmdPushConstants(cmdBuffer, mPipelineLayout,
         VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof fragShaderPushConstants, &pushConstants);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
 
-    VkBuffer vertexBuffers[] = {mVertexBuffer};
+    VkBuffer vertexBuffers[] = {mVertexBuff};
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(cmdBuffer, mIndexBuff, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDraw(commandBuffer, mVertices.size(), 1, 0, 0);
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdDrawIndexed(cmdBuffer, mIndices.size(), 1, 0, 0, 0);
+    vkCmdEndRenderPass(cmdBuffer);
 
-    if(auto res{vkEndCommandBuffer(commandBuffer)}; res != VK_SUCCESS)
+    if(auto res{vkEndCommandBuffer(cmdBuffer)}; res != VK_SUCCESS)
         throw DFException{"vkEndCommandBuffer failed", res};
 }
 
@@ -676,6 +680,31 @@ void VulkanRenderer::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
     vkFreeCommandBuffers(device, mCommandPool, 1, &cmdBuff);
 }
 
+void VulkanRenderer::createIndexBuffer()
+{
+    auto const device {mDevice.getLogicalDevice()};
+    VkDeviceSize buffSize {sizeof(mIndices[0]) * mIndices.size()};
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+        stagingBuffer, stagingBufferMemory);
+
+    void* data {nullptr};
+    vkMapMemory(device, stagingBufferMemory, 0, buffSize, 0, &data);
+    memcpy(data, mIndices.data(), (size_t) buffSize);
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mIndexBuff, mIndexBuffMemory);
+
+    copyBuffer(stagingBuffer, mIndexBuff, buffSize);
+
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
 void VulkanRenderer::createVertexBuffer()
 {
     VkDeviceSize buffSize {sizeof(mVertices[0]) * mVertices.size()};
@@ -694,16 +723,17 @@ void VulkanRenderer::createVertexBuffer()
     vkUnmapMemory(device, stagingBuffMemory);
 
     createBuffer(buffSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mVertexBuffer, mVertexBufferMemory);
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mVertexBuff, mVertexBuffMemory);
 
-    copyBuffer(stagingBuff, mVertexBuffer, buffSize);
+    copyBuffer(stagingBuff, mVertexBuff, buffSize);
 
     vkDestroyBuffer(device, stagingBuff, nullptr);
     vkFreeMemory(device, stagingBuffMemory, nullptr);
 }
 
 [[nodiscard]]
-static VkShaderModule createShaderModule(U32 const* const spirVCode, size_t spirVSize, VkDevice device)
+static VkShaderModule createShaderModule(U32 const* const spirVCode,
+    size_t spirVSize, VkDevice device)
 {
     VkShaderModuleCreateInfo createInfo
     {
@@ -742,7 +772,8 @@ static std::string getFileAsString(std::filesystem::path const& fname)
 }
 
 [[nodiscard]] //returns VK_NULL_HANDLE if something went wrong
-static VkShaderModule compileGLSLShaders(VkDevice device, std::string_view shaderPath, shaderc_shader_kind shaderType)
+static VkShaderModule compileGLSLShaders(VkDevice device, 
+    std::string_view shaderPath, shaderc_shader_kind shaderType)
 {
     std::string const glslSource {getFileAsString(shaderPath)};
 

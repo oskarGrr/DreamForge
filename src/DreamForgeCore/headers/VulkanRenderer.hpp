@@ -27,7 +27,7 @@ private:
         glm::vec2 pos;
         glm::vec3 color;
 
-        static VkVertexInputBindingDescription getBindingDescription() 
+        static auto getBindingDescription()
         {
             VkVertexInputBindingDescription bindingDescription
             {
@@ -39,7 +39,7 @@ private:
             return bindingDescription;
         }
         
-        static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() 
+        static auto getAttributeDescriptions() 
         {
             std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions;
 
@@ -57,15 +57,20 @@ private:
         }
     };
 
-    std::vector<Vertex> const mVertices
+    std::array<Vertex, 4> const mVertices
     {
-        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, 0.5f},  {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+        Vertex{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        Vertex{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        Vertex{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        Vertex{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
     };
 
-    VkBuffer mVertexBuffer {VK_NULL_HANDLE};
-    VkDeviceMemory mVertexBufferMemory {VK_NULL_HANDLE};
+    std::array<U32, 6> const mIndices {0, 1, 2, 2, 3, 0};
+
+    VkBuffer mVertexBuff {VK_NULL_HANDLE};
+    VkBuffer mIndexBuff {VK_NULL_HANDLE};
+    VkDeviceMemory mVertexBuffMemory {VK_NULL_HANDLE};
+    VkDeviceMemory mIndexBuffMemory {VK_NULL_HANDLE};
 
     constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
     U32 mCurrentFrame {0};
@@ -110,7 +115,6 @@ private:
         uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
     
     U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);
-
     
     void initPipeline();
     void initImageViews();
@@ -126,6 +130,7 @@ private:
     void recreateSwapChain();
 
     void createVertexBuffer();
+    void createIndexBuffer();
     void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
         VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory);
