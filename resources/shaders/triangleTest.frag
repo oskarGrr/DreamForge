@@ -21,9 +21,5 @@ vec2 fragCoord = gl_FragCoord.xy;
 
 void main()
 {
-	vec2 uv = fragCoord / iResolution;
-
-	vec3 col = vec3(uv.x);
-
-	fragColor = vec4(col, 1.0);
+	fragColor = vec4(inColor, 1);
 }

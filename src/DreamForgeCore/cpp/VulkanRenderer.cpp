@@ -1,13 +1,19 @@
 #include "VulkanRenderer.hpp"
 #include "errorHandling.hpp"
 #include "Logging.hpp"
-#include "shaderc/shaderc.hpp"
 
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_vulkan.h>
 #include <filesystem>
 #include <fstream>
 #include <span>
+#include <chrono>
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <shaderc/shaderc.hpp>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
 
 namespace DF
 {
@@ -17,13 +23,17 @@ VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
     initSwapChain();
     initImageViews();
     initRenderPass();
+    initDescriptorSetLayout();
+    initUniformBuffers();
+    initDescriptorPool();
+    initDescriptorSets();
     initPipeline();
     initFramebuffers();
     initCommandPool();
     createVertexBuffer();
     createIndexBuffer();
     initCommandBuffers();
-    createSynchronizationObjects();
+    initSynchronizationObjects();
 
     //auto queueFamilies = mDevice.getQueueFamilyIndices();
     //ImGui_ImplGlfw_InitForVulkan(mWindow.getRawWindow(), true);
@@ -56,6 +66,15 @@ VulkanRenderer::~VulkanRenderer()
     vkDestroyBuffer(device, mIndexBuff, nullptr);
     vkFreeMemory(device, mIndexBuffMemory, nullptr);
     vkDestroyRenderPass(device, mRenderPass, nullptr);
+
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        vkDestroyBuffer(device, mUniformBuffers[i], nullptr);
+        vkFreeMemory(device, mUniformBuffersMemory[i], nullptr);
+    }
+
+    vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
     vkDestroyShaderModule(device, mFragShaderModule, nullptr);
     vkDestroyShaderModule(device, mVertShaderModule, nullptr);
     vkDestroyCommandPool(device, mCommandPool, nullptr);
@@ -70,7 +89,7 @@ VulkanRenderer::~VulkanRenderer()
     }
 }
 
-void VulkanRenderer::createSynchronizationObjects()
+void VulkanRenderer::initSynchronizationObjects()
 {
     VkSemaphoreCreateInfo const semCreateInfo {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     auto const device {mDevice.getLogicalDevice()};
@@ -100,6 +119,134 @@ void VulkanRenderer::createSynchronizationObjects()
         if(auto res{vkCreateFence(device, &fenceInfo, nullptr, &mInFlightFence[i])}; res != VK_SUCCESS)
             throw SystemInitException{"vkCreateFence failed", res}; 
     }
+}
+
+void VulkanRenderer::initDescriptorSetLayout()
+{
+    VkDescriptorSetLayoutBinding layoutBinding
+    {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+    };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &layoutBinding
+    };
+
+    auto device {mDevice.getLogicalDevice()};
+    if(auto res{vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &mDescriptorSetLayout)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"vkCreateDescriptorSetLayout failed", res};
+    }
+}
+
+void VulkanRenderer::initUniformBuffers()
+{
+    VkDeviceSize const buffSize {sizeof(MVPMatrices)};
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        createBuffer(buffSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            mUniformBuffers[i], mUniformBuffersMemory[i]);
+
+        //The UBO is mapped for the lifetime of the renderer.
+        auto device {mDevice.getLogicalDevice()};
+        vkMapMemory(device, mUniformBuffersMemory[i], 0, buffSize, 0, &mUniformBuffersMapped[i]);
+    }
+}
+
+void VulkanRenderer::initDescriptorSets()
+{
+    std::array<VkDescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts;
+    layouts.fill(mDescriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = mDescriptorPool,
+        .descriptorSetCount = (U32)(MAX_FRAMES_IN_FLIGHT),
+        .pSetLayouts = layouts.data(),
+    };
+
+    auto device {mDevice.getLogicalDevice()};
+    if(auto res{vkAllocateDescriptorSets(device, &allocInfo, mDescriptorSets.data())};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"failed to allocate descriptor sets!", res};
+    }
+
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        VkDescriptorBufferInfo bufferInfo
+        {
+            .buffer = mUniformBuffers[i],
+            .offset = 0,
+            .range = sizeof(MVPMatrices)
+        };
+
+        VkWriteDescriptorSet descriptorWrite
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = mDescriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = &bufferInfo
+        };
+
+        vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+    }
+}
+
+void VulkanRenderer::initDescriptorPool()
+{
+    VkDescriptorPoolSize poolSize
+    {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = (U32)(MAX_FRAMES_IN_FLIGHT),
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = (U32)(MAX_FRAMES_IN_FLIGHT),
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize,
+    };
+
+    auto device {mDevice.getLogicalDevice()};
+    if(auto res{vkCreateDescriptorPool(device, &poolInfo, nullptr, &mDescriptorPool)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"vkCreateDescriptorPool failed", res};
+    }
+}
+
+void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
+{
+    static float secondsAccumulator{};
+    secondsAccumulator += dt;
+
+    MVPMatrices matrices
+    {
+        .model = glm::rotate(glm::mat4(1.0), secondsAccumulator * glm::radians(70.0f),
+            glm::vec3(0.0, 0.0, 1.0)),
+
+        .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+
+        .proj = glm::perspective(glm::radians(45.0f),
+            mSwapChainExtent.width / (float)mSwapChainExtent.height, 0.1f, 10.0f)
+    };
+
+    matrices.proj[1][1] *= -1;
+    memcpy(mUniformBuffersMapped[currentFrame], &matrices, sizeof matrices);
 }
 
 void VulkanRenderer::initImageViews()
@@ -263,6 +410,8 @@ void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer,
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(cmdBuffer, mIndexBuff, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        mPipelineLayout, 0, 1, &mDescriptorSets[mCurrentFrame], 0, nullptr);
 
     vkCmdDrawIndexed(cmdBuffer, mIndices.size(), 1, 0, 0, 0);
     vkCmdEndRenderPass(cmdBuffer);
@@ -298,8 +447,10 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
     vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
     vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
     recordCommands(mCommandBuffers[mCurrentFrame], imageIndex, deltaTime, mousePos);
+    updateUniformBuffer(mCurrentFrame, (float)deltaTime);
 
     {
+
         VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         VkSubmitInfo submitInfo
         {
@@ -656,13 +807,7 @@ void VulkanRenderer::copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size)
 
     vkBeginCommandBuffer(cmdBuff, &cmdBuffBeginInfo);
 
-    VkBufferCopy copyRegion
-    {
-        //.srcOffset = 0,
-        //.dstOffset = 0,
-        .size = size
-    };
-
+    VkBufferCopy copyRegion {.size = size};
     vkCmdCopyBuffer(cmdBuff, src, dst, 1, &copyRegion);
     vkEndCommandBuffer(cmdBuff);
 
@@ -813,7 +958,7 @@ void VulkanRenderer::initPipeline()
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
 
     mFragShaderModule = compileGLSLShaders(device, 
-        "resources/shaders/kishimisuTutorial.frag", shaderc_fragment_shader);
+        "resources/shaders/MengerTunnel.frag", shaderc_fragment_shader);
 
     if(mFragShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
@@ -898,7 +1043,7 @@ void VulkanRenderer::initPipeline()
         //.rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         //.depthBiasEnable = VK_FALSE,
         //.depthBiasConstantFactor = 0.0f,
         //.depthBiasClamp = 0.0f, 
@@ -932,10 +1077,6 @@ void VulkanRenderer::initPipeline()
             VK_COLOR_COMPONENT_A_BIT,
     };
 
-    //colorBlendAttachment.blendEnable = VK_TRUE;
-    //colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    //colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
     VkPipelineColorBlendStateCreateInfo colorBlending
     {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
@@ -944,11 +1085,6 @@ void VulkanRenderer::initPipeline()
         .attachmentCount = 1,
         .pAttachments = &colorBlendAttachment,
     };
-
-    //colorBlending.blendConstants[0] = 0.0f,
-    //colorBlending.blendConstants[1] = 0.0f,
-    //colorBlending.blendConstants[2] = 0.0f,
-    //colorBlending.blendConstants[3] = 0.0f
 
     VkPushConstantRange const pushConstantRange
     {
@@ -960,8 +1096,8 @@ void VulkanRenderer::initPipeline()
     VkPipelineLayoutCreateInfo const pipelineLayoutInfo
     {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 0,
-        .pSetLayouts = nullptr,
+        .setLayoutCount = 1,
+        .pSetLayouts = &mDescriptorSetLayout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &pushConstantRange
     };

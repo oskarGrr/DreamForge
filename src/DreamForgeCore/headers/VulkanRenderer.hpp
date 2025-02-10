@@ -22,6 +22,14 @@ public:
 
 private:
 
+    //used as a uniform buffer object
+    struct MVPMatrices
+    {
+        glm::mat4 model;
+        glm::mat4 view;
+        glm::mat4 proj;
+    };
+
     struct Vertex
     {
         glm::vec2 pos;
@@ -57,14 +65,16 @@ private:
         }
     };
 
+    constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
+    U32 mCurrentFrame {0};
+
     std::array<Vertex, 4> const mVertices
     {
-        Vertex{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        Vertex{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        Vertex{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        Vertex{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+        Vertex{ {-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        Vertex{ { 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        Vertex{ { 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
+        Vertex{ {-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}}
     };
-
     std::array<U32, 6> const mIndices {0, 1, 2, 2, 3, 0};
 
     VkBuffer mVertexBuff {VK_NULL_HANDLE};
@@ -72,8 +82,10 @@ private:
     VkDeviceMemory mVertexBuffMemory {VK_NULL_HANDLE};
     VkDeviceMemory mIndexBuffMemory {VK_NULL_HANDLE};
 
-    constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
-    U32 mCurrentFrame {0};
+    std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> mUniformBuffers;
+    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> mUniformBuffersMemory;
+    std::array<void*, MAX_FRAMES_IN_FLIGHT> mUniformBuffersMapped;
+    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> mDescriptorSets;
 
     Window& mWindow;
 
@@ -87,6 +99,7 @@ private:
     VkExtent2D mSwapChainExtent{};
 
     VkRenderPass mRenderPass {VK_NULL_HANDLE};
+    VkDescriptorPool mDescriptorPool{VK_NULL_HANDLE};
     
     struct fragShaderPushConstants 
     {
@@ -97,10 +110,11 @@ private:
         float mousePosY{};
     };
 
-    VkPipelineLayout mPipelineLayout   {VK_NULL_HANDLE};
-    VkPipeline       mGraphicsPipeline {VK_NULL_HANDLE};
-    VkShaderModule   mVertShaderModule {VK_NULL_HANDLE};
-    VkShaderModule   mFragShaderModule {VK_NULL_HANDLE};
+    VkDescriptorSetLayout mDescriptorSetLayout {VK_NULL_HANDLE};
+    VkPipelineLayout mPipelineLayout {VK_NULL_HANDLE};
+    VkPipeline mGraphicsPipeline {VK_NULL_HANDLE};
+    VkShaderModule mVertShaderModule {VK_NULL_HANDLE};
+    VkShaderModule mFragShaderModule {VK_NULL_HANDLE};
 
     VkCommandPool mCommandPool {VK_NULL_HANDLE};
     std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers;
@@ -110,6 +124,8 @@ private:
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence;
 
     ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
+
+    void updateUniformBuffer(U32 currentFrame, float dt);
 
     void recordCommands(VkCommandBuffer commandBuffer, 
         uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
@@ -123,8 +139,11 @@ private:
     void initCommandBuffers();
     void initFramebuffers();
     void initSwapChain();
-
-    void createSynchronizationObjects();
+    void initSynchronizationObjects();
+    void initDescriptorSetLayout();
+    void initUniformBuffers();
+    void initDescriptorSets();
+    void initDescriptorPool();
 
     void cleanupSwapChain();
     void recreateSwapChain();

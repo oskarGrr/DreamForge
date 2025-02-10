@@ -55,10 +55,8 @@ double DreamForgeApp::endOfLoop(std::chrono::steady_clock::time_point const fram
     //SDL_RenderPresent(renderer);
     //ImGui::EndFrame();
     const auto end = std::chrono::steady_clock::now();
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(end - frameStartTime).count() / 1.0E9;
+    return std::chrono::duration<double, std::chrono::seconds::period>(end - frameStartTime).count();
 }
-
-
 
 DreamForgeApp::DreamForgeApp()
     try
