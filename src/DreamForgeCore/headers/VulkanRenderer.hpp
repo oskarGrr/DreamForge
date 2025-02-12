@@ -18,6 +18,8 @@ public:
     VulkanRenderer(Window& wnd);
     ~VulkanRenderer();
 
+    void initImguiRenderInfo();
+
     void update(F64 deltaTime, glm::vec<2, double> mousePos);
 
 private:
@@ -49,7 +51,7 @@ private:
         
         static auto getAttributeDescriptions() 
         {
-            std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions;
+            std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
@@ -123,6 +125,8 @@ private:
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSem;
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence;
 
+    //call void initImguiRenderInfo() to initialize imgui rendering related things
+    bool mImGuiRenderInfoInitialized {false};
     ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
 
     void updateUniformBuffer(U32 currentFrame, float dt);

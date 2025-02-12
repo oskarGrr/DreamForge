@@ -34,24 +34,6 @@ VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
     createIndexBuffer();
     initCommandBuffers();
     initSynchronizationObjects();
-
-    //auto queueFamilies = mDevice.getQueueFamilyIndices();
-    //ImGui_ImplGlfw_InitForVulkan(mWindow.getRawWindow(), true);
-    //mImguiInitInfo.Instance = mDevice.getInstance();
-    //mImguiInitInfo.PhysicalDevice = mDevice.getPhysicalDevice();
-    //mImguiInitInfo.Device = mDevice.getLogicalDevice();
-    //mImguiInitInfo.QueueFamily = *queueFamilies.graphicsFamilyIndex;
-    //mImguiInitInfo.Queue = mDevice.getGraphicsQueue();
-    //mImguiInitInfo.PipelineCache = nullptr;
-    //mImguiInitInfo.DescriptorPool = nullptr;
-    //mImguiInitInfo.RenderPass = mRenderPass;
-    //mImguiInitInfo.Subpass = 0;
-    //mImguiInitInfo.MinImageCount = g_MinImageCount;
-    //mImguiInitInfo.ImageCount = wd->ImageCount;
-    //mImguiInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    //mImguiInitInfo.Allocator = g_Allocator;
-    //mImguiInitInfo.CheckVkResultFn = check_vk_result;
-    //ImGui_ImplVulkan_Init(&mImguiInitInfo);
 }
 
 VulkanRenderer::~VulkanRenderer()
@@ -228,6 +210,39 @@ void VulkanRenderer::initDescriptorPool()
     }
 }
 
+void VulkanRenderer::initImguiRenderInfo()
+{
+    //pass vulkan info to imgui backend
+    auto queueFamilies = mDevice.getQueueFamilyIndices();
+    mImguiInitInfo.Instance = mDevice.getInstance();
+    mImguiInitInfo.PhysicalDevice = mDevice.getPhysicalDevice();
+    mImguiInitInfo.Device = mDevice.getLogicalDevice();
+    mImguiInitInfo.QueueFamily = *queueFamilies.graphicsFamilyIndex;
+    mImguiInitInfo.Queue = mDevice.getGraphicsQueue();
+    mImguiInitInfo.PipelineCache = nullptr;
+    mImguiInitInfo.DescriptorPool = mDescriptorPool;
+    mImguiInitInfo.RenderPass = mRenderPass;
+    mImguiInitInfo.Subpass = 0;
+    mImguiInitInfo.MinImageCount = 3;
+    mImguiInitInfo.ImageCount = mSwapChainImages.size();
+    mImguiInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    mImguiInitInfo.Allocator = nullptr;
+    mImguiInitInfo.CheckVkResultFn = [](VkResult){};//will change later
+    ImGui_ImplVulkan_Init(&mImguiInitInfo);
+
+    ////upload fonts to gpu
+    //cb.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    //ImGui_ImplVulkan_CreateFontsTexture();
+    //cb.end();
+    //vk::SubmitInfo si;
+    //si.commandBufferCount = cb.size();
+    //si.pCommandBuffers = cb.data();
+    //vk::Result res = device->getGraphicsQueue().submit(1, &si, {});
+    //device->getGraphicsQueue().waitIdle();
+
+    mImGuiRenderInfoInitialized = true;
+}
+
 void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
 {
     static float secondsAccumulator{};
@@ -235,10 +250,10 @@ void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
 
     MVPMatrices matrices
     {
-        .model = glm::rotate(glm::mat4(1.0), secondsAccumulator * glm::radians(70.0f),
-            glm::vec3(0.0, 0.0, 1.0)),
+        .model = glm::rotate(glm::mat4(1.0), secondsAccumulator * glm::radians(50.0f),
+            glm::vec3(0.0, 1.0, 1.0)),
 
-        .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), 
+        .view = glm::lookAt(glm::vec3(1.2f, 0.0f, 0.0f),
             glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
 
         .proj = glm::perspective(glm::radians(45.0f),
@@ -246,6 +261,7 @@ void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
     };
 
     matrices.proj[1][1] *= -1;
+
     memcpy(mUniformBuffersMapped[currentFrame], &matrices, sizeof matrices);
 }
 
@@ -354,19 +370,16 @@ void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer,
     if(auto res{vkBeginCommandBuffer(cmdBuffer, &beginInfo)}; res != VK_SUCCESS)
         throw DFException{"vkBeginCommandBuffer failed", res};
     
+    VkClearValue clearColor {0.0f, 0.0f, 0.0f, 1.0f};
     VkRenderPassBeginInfo renderPassInfo
     {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = mRenderPass,
-        .framebuffer = mSwapChainFramebuffers[imageIndex]
+        .framebuffer = mSwapChainFramebuffers[imageIndex],
+        .clearValueCount = 1,
+        .pClearValues = &clearColor
     };
-
-    renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = mSwapChainExtent;
-
-    VkClearValue clearColor {0.0f, 0.0f, 0.0f, 1.0f};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
 
     vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
@@ -628,13 +641,13 @@ static VkExtent2D chooseSwapChainExtent(VkSurfaceCapabilitiesKHR const& surfaceC
 [[nodiscard]]
 static VkPresentModeKHR chooseSwapChainPresentMode(std::span<const VkPresentModeKHR> availableModes)
 {
-    for(const auto& availablePresentMode : availableModes)
-    {
-        if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-            return availablePresentMode;
-    }
+    //for(const auto& availablePresentMode : availableModes)
+    //{
+    //    if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+    //        return availablePresentMode;
+    //}
 
-    return VK_PRESENT_MODE_FIFO_KHR;
+    return VK_PRESENT_MODE_FIFO_KHR; //FIFO is guaranteed to be available
 }
 
 //helper func for createSwapChain
@@ -958,7 +971,7 @@ void VulkanRenderer::initPipeline()
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
 
     mFragShaderModule = compileGLSLShaders(device, 
-        "resources/shaders/MengerTunnel.frag", shaderc_fragment_shader);
+        "resources/shaders/rainbowStrip.frag", shaderc_fragment_shader);
 
     if(mFragShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
@@ -1042,7 +1055,7 @@ void VulkanRenderer::initPipeline()
         //.depthClampEnable = VK_FALSE,
         //.rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .cullMode = VK_CULL_MODE_NONE,
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         //.depthBiasEnable = VK_FALSE,
         //.depthBiasConstantFactor = 0.0f,

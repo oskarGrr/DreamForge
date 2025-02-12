@@ -1,9 +1,11 @@
 #pragma once
-
 #include "Window.hpp"
 #include "df_export.hpp"
 #include "VulkanRenderer.hpp"
+#include "ErrorHandling.hpp"
 #include <chrono>
+
+struct ImGuiContext;
 
 namespace DF
 {
@@ -21,10 +23,16 @@ public:
     DreamForgeApp& operator=(DreamForgeApp&&)=delete;
     
     void run();
-
     void processWindowEvents();
-
     glm::vec<2, double> getMousePos();
+
+    struct guiContext
+    {
+        guiContext(NonOwningPtr<GLFWwindow> wnd);
+        ~guiContext();
+        ImGuiContext* context {nullptr};
+    };
+    NonOwningPtr<ImGuiContext> getImGuiContext() {return mImGuiContex.context;}
 
 private:
 
@@ -34,7 +42,9 @@ private:
 
     bool mIsAppRunning;
     Window mWindow;
+    std::string_view const mTitle {"Dream Forge"};
     VulkanRenderer mRenderer {mWindow};
+    guiContext mImGuiContex {mWindow.getRawWindow()};
 };
 
 }
