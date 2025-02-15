@@ -114,7 +114,8 @@ glm::vec<2, double> ApplicationBase::getMousePos()
 }
 
 
-ApplicationBase::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd)
+ApplicationBase::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd, VulkanRenderer const& r) 
+    : renderer {r}
 {
     IMGUI_CHECKVERSION();
     context = ImGui::CreateContext();
@@ -128,6 +129,8 @@ ApplicationBase::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd)
 
 ApplicationBase::guiContext::~guiContext()
 {
+    renderer.waitForGPUIdle();
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

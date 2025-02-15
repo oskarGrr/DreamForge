@@ -22,6 +22,8 @@ public:
 
     void update(F64 deltaTime, glm::vec<2, double> mousePos);
 
+    void waitForGPUIdle() const {vkDeviceWaitIdle(mDevice.getLogicalDevice());}
+
 private:
 
     //used as a uniform buffer object

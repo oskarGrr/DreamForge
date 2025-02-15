@@ -26,9 +26,10 @@ public:
 
     struct guiContext
     {
-        guiContext(NonOwningPtr<GLFWwindow> wnd);
+        guiContext(NonOwningPtr<GLFWwindow> wnd, VulkanRenderer const&);
         ~guiContext();
         ImGuiContext* context {nullptr};
+        VulkanRenderer const& renderer;
     };
     NonOwningPtr<ImGuiContext> getImGuiContext() const {return mImGuiContex.context;}
 
@@ -39,11 +40,11 @@ private:
     double endOfLoop(std::chrono::steady_clock::time_point const frameStartTime);
 
     bool mIsAppRunning {false};
-    double mFrameTime{0.0};
+    double mFrameTime {0.0};
     Window mWindow;
     std::string_view const mTitle {"Dream Forge"};
     VulkanRenderer mRenderer {mWindow};
-    guiContext mImGuiContex {mWindow.getRawWindow()};
+    guiContext mImGuiContex {mWindow.getRawWindow(), mRenderer};
 
 public:
     ApplicationBase(ApplicationBase const&)=delete;
