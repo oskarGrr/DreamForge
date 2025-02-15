@@ -103,7 +103,7 @@ private:
     VkRenderPass mRenderPass {VK_NULL_HANDLE};
     VkDescriptorPool mDescriptorPool{VK_NULL_HANDLE};
     
-    struct fragShaderPushConstants 
+    struct fragShaderPushConstants
     {
         float increasingTimeSeconds{};
         U32 width{};
@@ -129,13 +129,16 @@ private:
     bool mImGuiRenderInfoInitialized {false};
     ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
 
+    VkImage mTextureImage {VK_NULL_HANDLE};
+    VkDeviceMemory mTextureImageMemory {VK_NULL_HANDLE};
+    VkImageView mTextureImageView {VK_NULL_HANDLE};
+    VkSampler mTextureSampler {VK_NULL_HANDLE};
+
     void updateUniformBuffer(U32 currentFrame, float dt);
 
     void recordCommands(VkCommandBuffer commandBuffer, 
-        uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
-    
-    U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);
-    
+        U32 imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
+
     void initPipeline();
     void initImageViews();
     void initRenderPass();
@@ -148,12 +151,22 @@ private:
     void initUniformBuffers();
     void initDescriptorSets();
     void initDescriptorPool();
+    void initTextureImage();
+    void initTextureImageView();
+    void initTextureSampler();
+    void initVertexBuffer();
+    void initIndexBuffer();
 
     void cleanupSwapChain();
     void recreateSwapChain();
 
-    void createVertexBuffer();
-    void createIndexBuffer();
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer cmdBuffer);
+    U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);
+    void createImage(U32 width, U32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, 
+        VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    void copyBufferToImage(VkBuffer buffer, VkImage image, U32 width, U32 height);
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
         VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory);

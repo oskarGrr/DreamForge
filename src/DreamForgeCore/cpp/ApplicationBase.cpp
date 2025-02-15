@@ -80,8 +80,13 @@ catch(SystemInitException const& e)
 {
     Logger::get().stdoutError(e.what());
     Logger::get().stdoutError("error encountered while initializing the engine. shutting down");
-    std::exit(-1);
-};
+    std::exit(EXIT_FAILURE);
+}
+catch(std::exception const& e)
+{
+    Logger::get().stdoutError(e.what());
+    std::exit(EXIT_FAILURE);
+}
 
 void ApplicationBase::run()
 {

@@ -37,13 +37,6 @@ debugMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT msgSeverity,
     return VK_FALSE;
 }
 
-static std::string getPhysicalDeviceName(VkPhysicalDevice physicalDeviceHandle)
-{ 
-    VkPhysicalDeviceProperties physicalDeviceProperties;
-    vkGetPhysicalDeviceProperties(physicalDeviceHandle, &physicalDeviceProperties);
-    return std::string{physicalDeviceProperties.deviceName};
-}
-
 VulkanDevice::VulkanDevice(Window const& wnd) : mWindowRef{wnd}
 {
     //get which glfw related vulkan instance extensions are needed
@@ -201,7 +194,7 @@ bool VulkanDevice::isPhysicalDeviceSuitable(VkPhysicalDevice deviceHandle)
         //if any of them are false then this device is not suitable
         if(//supportedDeviceFeatures.tessellationShader != VK_TRUE ||
            //supportedDeviceFeatures.geometryShader     != VK_TRUE ||
-           supportedDeviceFeatures.samplerAnisotropy  != VK_TRUE)
+           supportedDeviceFeatures.samplerAnisotropy    != VK_TRUE)
         {
             return false;
         }
@@ -242,20 +235,19 @@ void VulkanDevice::selectPhysicalDevice()
     if(mPhysicalDevice == VK_NULL_HANDLE)
         throw SystemInitException{"failed to find a suitable physical device"};
 
-    std::string deviceFoundMsg;
-    VkPhysicalDeviceProperties physicalProperties {};
-    vkGetPhysicalDeviceProperties(mPhysicalDevice, &physicalProperties);
+    vkGetPhysicalDeviceProperties(mPhysicalDevice, &mDeviceProperties);
 
-    if(physicalProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+    std::string deviceFoundMsg;
+    if(mDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
     {
         deviceFoundMsg = "using GPU: ";
-        deviceFoundMsg.append(physicalProperties.deviceName);
+        deviceFoundMsg.append(mDeviceProperties.deviceName);
         Logger::get().stdoutInfo(deviceFoundMsg); //just info
     }
     else //not a discrete GPU
     {
         deviceFoundMsg = "could not find a discrete GPU. Using physical device:\n";
-        deviceFoundMsg.append(physicalProperties.deviceName);
+        deviceFoundMsg.append(mDeviceProperties.deviceName);
         Logger::get().stdoutWarn(deviceFoundMsg); //warning
     }
 }
@@ -284,20 +276,6 @@ void VulkanDevice::logSupportedInstanceExtensions() const
     }
 }
 
-//logs all the physical devices found in mAllPhysicalDevices. 
-//enumerateAllPhysicalDevices should be called first to fill mAllPhysicalDevices
-void VulkanDevice::logAllPhysicalDeviceNames() const
-{
-    Logger::get().stdoutInfo("list of physical devices found by vulkan:");
-
-    //capture by value, device will just be a handle/pointer
-    for(VkPhysicalDevice const physicalDeviceHandle : mAllPhysicalDevices)
-    {
-        std::string deviceName { getPhysicalDeviceName(physicalDeviceHandle) };
-        Logger::get().stdoutInfo(deviceName);
-    }
-}
-
 //fill mAllPhysicalDevices
 void VulkanDevice::enumerateAllPhysicalDevices()
 {
@@ -323,8 +301,6 @@ void VulkanDevice::enumerateAllPhysicalDevices()
     {
         throw SystemInitException{"vkEnumeratePhysicalDevices failed", res};
     }
-
-    logAllPhysicalDeviceNames();
 }
 
 //init mLogicalDevice from mPhysicalDevice
@@ -366,8 +342,11 @@ void VulkanDevice::createLogicalDevice()
         .pEnabledFeatures = &mDeviceFeatures,
     };
     
-    if(VkResult res {vkCreateDevice(mPhysicalDevice, &deviceCreationInfo, nullptr, &mLogicalDevice)}; res != VK_SUCCESS)
+    if(VkResult res {vkCreateDevice(mPhysicalDevice, &deviceCreationInfo, nullptr, &mLogicalDevice)}; 
+        res != VK_SUCCESS)
+    {
         throw SystemInitException{"vkCreateDevice failed", res};
+    }
 
     //get the handles to the 2 queues
     vkGetDeviceQueue(mLogicalDevice, *queueFamIndices.graphicsFamilyIndex, 0, &mGraphicsQueue);

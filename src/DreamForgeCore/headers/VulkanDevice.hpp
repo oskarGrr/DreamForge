@@ -24,6 +24,7 @@ public:
     auto getPresentQueue() const {return mPresentQueue;}
     auto getSurface() const {return mSurface;}
     auto getInstance() const {return mInstance;}
+    auto const& getPhysicalDeviceProperties() const {return mDeviceProperties;}
 
     struct QueueFamilyIndices
     {
@@ -48,9 +49,6 @@ public:
     }
 
     void logSupportedInstanceExtensions() const;
-
-    //logs all the physical devices found in mAllPhysicalDevices. 
-    void logAllPhysicalDeviceNames() const;
 
 private:
 
@@ -84,6 +82,9 @@ private:
     //after selectPhysicalDevice has selected a suitable device,
     //this structure will hold the features we will be enabling in createLogicalDevice
     VkPhysicalDeviceFeatures mDeviceFeatures {};
+
+    //filled out in selectPhysicalDevice
+    VkPhysicalDeviceProperties mDeviceProperties {};
 
     Window const& mWindowRef;
 
