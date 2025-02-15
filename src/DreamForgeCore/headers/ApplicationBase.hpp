@@ -10,12 +10,12 @@ struct ImGuiContext;
 namespace DF
 {
 
-class DF_DLL_API DreamForgeApp
+class DF_DLL_API ApplicationBase
 {
 public:
     
-    DreamForgeApp();
-    virtual ~DreamForgeApp()=default;
+    ApplicationBase();
+    virtual ~ApplicationBase()=default;
     
     //optionally override this to draw a debug menu with imgui.
     virtual void imguiDraw() const {}
@@ -46,10 +46,10 @@ private:
     guiContext mImGuiContex {mWindow.getRawWindow()};
 
 public:
-    DreamForgeApp(DreamForgeApp const&)=delete;
-    DreamForgeApp(DreamForgeApp&&)=delete;
-    DreamForgeApp& operator=(DreamForgeApp const&)=delete;
-    DreamForgeApp& operator=(DreamForgeApp&&)=delete;
+    ApplicationBase(ApplicationBase const&)=delete;
+    ApplicationBase(ApplicationBase&&)=delete;
+    ApplicationBase& operator=(ApplicationBase const&)=delete;
+    ApplicationBase& operator=(ApplicationBase&&)=delete;
 };
 
 }

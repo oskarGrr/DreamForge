@@ -4,22 +4,22 @@ set(HEADER_FILES
     headers/errorHandling.hpp
     headers/HelpfulTypeAliases.hpp
     headers/Logging.hpp
-    headers/DFApp.hpp
     headers/Scripting.hpp
     headers/Window.hpp
     interfaceHeaders/DreamForge.hpp
 	headers/VulkanDevice.hpp
 	headers/VulkanRenderer.hpp
+	headers/ApplicationBase.hpp
 )
 
 set(CPP_FILES
     cpp/errorHandling.cpp
     cpp/DFLog.cpp
-    cpp/DFApp.cpp
     cpp/Scripting.cpp
     cpp/Window.cpp
 	cpp/VulkanDevice.cpp
 	cpp/VulkanRenderer.cpp
+	cpp/ApplicationBase.cpp
 )
 
 set(ECS_SRC_FILES

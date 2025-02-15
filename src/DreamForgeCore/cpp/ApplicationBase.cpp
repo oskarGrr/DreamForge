@@ -13,10 +13,10 @@
 #include <imgui_impl_vulkan.h>
 #include <imgui_impl_glfw.h>
 
-#include "DFApp.hpp"
+#include "ApplicationBase.hpp"
 #include "Window.hpp"
 #include "Scripting.hpp"
-#include "DFApp.hpp"
+#include "ApplicationBase.hpp"
 #include "Logging.hpp"
 #include "Components.hpp"
 #include "HelpfulTypeAliases.hpp"
@@ -34,7 +34,7 @@ namespace DF
 {
 
 [[nodiscard]] std::chrono::steady_clock::time_point 
-DreamForgeApp::startOfLoop()
+ApplicationBase::startOfLoop()
 {
     const auto start = std::chrono::steady_clock::now();
     ImGui_ImplVulkan_NewFrame();
@@ -44,7 +44,7 @@ DreamForgeApp::startOfLoop()
     return start;
 }
 
-double DreamForgeApp::endOfLoop(std::chrono::steady_clock::time_point const frameStartTime)
+double ApplicationBase::endOfLoop(std::chrono::steady_clock::time_point const frameStartTime)
 {
     ImGui::Render();
 
@@ -63,7 +63,7 @@ double DreamForgeApp::endOfLoop(std::chrono::steady_clock::time_point const fram
     return std::chrono::duration<double, std::chrono::seconds::period>(end - frameStartTime).count();
 }
 
-DreamForgeApp::DreamForgeApp()
+ApplicationBase::ApplicationBase()
 try : mWindow{}, mIsAppRunning{true}
 {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
@@ -83,7 +83,7 @@ catch(SystemInitException const& e)
     std::exit(-1);
 };
 
-void DreamForgeApp::run()
+void ApplicationBase::run()
 {
     while( ! mWindow.shouldClose() )
     {
@@ -96,12 +96,12 @@ void DreamForgeApp::run()
     }
 }
 
-void DreamForgeApp::processWindowEvents()
+void ApplicationBase::processWindowEvents()
 {
     glfwPollEvents();
 }
 
-glm::vec<2, double> DreamForgeApp::getMousePos()
+glm::vec<2, double> ApplicationBase::getMousePos()
 {
     double x, y;
     glfwGetCursorPos(mWindow.getRawWindow(), &x, &y);
@@ -109,7 +109,7 @@ glm::vec<2, double> DreamForgeApp::getMousePos()
 }
 
 
-DreamForgeApp::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd)
+ApplicationBase::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd)
 {
     IMGUI_CHECKVERSION();
     context = ImGui::CreateContext();
@@ -121,7 +121,7 @@ DreamForgeApp::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd)
     /*io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;*/
 }
 
-DreamForgeApp::guiContext::~guiContext()
+ApplicationBase::guiContext::~guiContext()
 {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();

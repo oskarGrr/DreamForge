@@ -2,8 +2,8 @@
 #include <iostream>
 
 #include "DreamForge.hpp"
+
 #include "GUITheme.hpp"
-#include "HelpfulTypeAliases.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -13,7 +13,7 @@
 namespace DFE
 {
 
-class EditorApp : public DF::DreamForgeApp
+class EditorApp : public DF::ApplicationBase
 {
 public:
     EditorApp()
