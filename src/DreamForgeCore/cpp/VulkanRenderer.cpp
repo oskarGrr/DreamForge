@@ -10,10 +10,10 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
 #include <shaderc/shaderc.hpp>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <stb_image.h>
 
 namespace DF
 {
@@ -1069,8 +1069,7 @@ void VulkanRenderer::initPipeline()
     VkVertexInputBindingDescription const bindingDescription{
         Vertex::getBindingDescription()};
 
-    std::array<VkVertexInputAttributeDescription, 2> const attributeDescriptions{
-        Vertex::getAttributeDescriptions()};
+    auto const attributeDescriptions {Vertex::getAttributeDescriptions()};
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo
     {
@@ -1081,7 +1080,7 @@ void VulkanRenderer::initPipeline()
         .pVertexAttributeDescriptions = attributeDescriptions.data()
     };
 
-    std::vector<VkDynamicState> const dynamicStates {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    std::array const dynamicStates {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
     VkPipelineDynamicStateCreateInfo dynamicState
     {

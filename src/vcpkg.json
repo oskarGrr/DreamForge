@@ -7,6 +7,7 @@
         "shaderc",
         "glm",
         "spdlog",
+        "stb",
         {
             "name": "imgui",
             "features": [ "docking-experimental", "vulkan-binding", "glfw-binding" ]
