@@ -56,6 +56,7 @@ VulkanRenderer::~VulkanRenderer()
     }
 
     vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
+    vkDestroyDescriptorPool(device, mImguiInitInfo.DescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
     vkDestroyShaderModule(device, mFragShaderModule, nullptr);
     vkDestroyShaderModule(device, mVertShaderModule, nullptr);
@@ -68,6 +69,381 @@ VulkanRenderer::~VulkanRenderer()
         vkDestroySemaphore(mDevice.getLogicalDevice(), mImageAvailableSem[i], nullptr);
         vkDestroySemaphore(mDevice.getLogicalDevice(), mRenderFinishedSem[i], nullptr);
         vkDestroyFence(mDevice.getLogicalDevice(), mInFlightFence[i], nullptr);
+    }
+}
+
+void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
+{
+    static float secondsAccumulator{};
+    secondsAccumulator += dt;
+
+    MVPMatrices matrices
+    {
+        .model = glm::rotate(glm::mat4(1.0), secondsAccumulator * glm::radians(50.0f),
+            glm::vec3(0.0, 1.0, 1.0)),
+
+        .view = glm::lookAt(glm::vec3(1.7f, 1.7f, 0.0f),
+            glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+
+        .proj = glm::perspective(glm::radians(45.0f),
+            mSwapChainExtent.width / (float)mSwapChainExtent.height, 0.1f, 10.0f)
+    };
+
+    matrices.proj[1][1] *= -1;
+
+    memcpy(mUniformBuffersMapped[currentFrame], &matrices, sizeof matrices);
+}
+
+void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer, 
+    uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos)
+{
+    VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    if(auto res{vkBeginCommandBuffer(cmdBuffer, &beginInfo)}; res != VK_SUCCESS)
+        throw DFException{"vkBeginCommandBuffer failed", res};
+    
+    {//begin the render pass
+        VkClearValue clearColor {0.0f, 0.0f, 0.0f, 1.0f};
+        VkRenderPassBeginInfo renderPassInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .renderPass = mRenderPass,
+            .framebuffer = mSwapChainFramebuffers[imageIndex],
+            .clearValueCount = 1,
+            .pClearValues = &clearColor
+        };
+        renderPassInfo.renderArea.extent = mSwapChainExtent;
+
+        vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    {
+        VkViewport const viewport
+        {
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = static_cast<float>(mSwapChainExtent.width),
+            .height = static_cast<float>(mSwapChainExtent.height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+        
+        VkRect2D const scissor
+        {
+            .offset = {0, 0},
+            .extent = mSwapChainExtent
+        };
+        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+    }
+
+    {
+        VkBuffer vertexBuffers[] = {mVertexBuff};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+        vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(cmdBuffer, mIndexBuff, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+            mPipelineLayout, 0, 1, &mDescriptorSets[mCurrentFrame], 0, nullptr);
+    }
+
+    {
+        static F32 incTime{0.0f};
+        incTime += deltaTime;
+
+        fragShaderPushConstants pushConstants
+        {
+            .increasingTimeSeconds = incTime,
+            .width = mSwapChainExtent.width,
+            .height = mSwapChainExtent.height,
+            .mousePosX = (float)mousePos.x,
+            .mousePosY = (float)mousePos.y
+        };
+        vkCmdPushConstants(cmdBuffer, mPipelineLayout,
+                VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof fragShaderPushConstants, &pushConstants);
+    }
+
+    vkCmdDrawIndexed(cmdBuffer, mIndices.size(), 1, 0, 0, 0);
+
+    ImDrawData* imguiDrawData {ImGui::GetDrawData()};
+    ImGui_ImplVulkan_RenderDrawData(imguiDrawData, cmdBuffer);
+
+    vkCmdEndRenderPass(cmdBuffer);
+
+    if(auto res{vkEndCommandBuffer(cmdBuffer)}; res != VK_SUCCESS)
+        throw DFException{"vkEndCommandBuffer failed", res};
+}
+
+void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
+{
+    auto const device {mDevice.getLogicalDevice()};
+    auto const graphicsQueue {mDevice.getGraphicsQueue()};
+    
+    //wait on mInFlightFence[mCurrentFrame] to be signaled, which indicates that the graphics queue
+    //is done with mCommandBuffers[mCurrentFrame], and it can now be recorded to again.
+    vkWaitForFences(device, 1, &mInFlightFence[mCurrentFrame], VK_TRUE, UINT64_MAX);
+    U32 imageIndex{0};
+
+    {
+        auto const res = vkAcquireNextImageKHR(device, mSwapChain, 
+            UINT64_MAX, mImageAvailableSem[mCurrentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        if(res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+            throw DFException{"vkAcquireNextImageKHR failed", res};
+
+        if(res == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            recreateSwapChain();
+            return;
+        }
+    }
+    
+    vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
+    vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
+    recordCommands(mCommandBuffers[mCurrentFrame], imageIndex, deltaTime, mousePos);
+    updateUniformBuffer(mCurrentFrame, (float)deltaTime);
+
+    {
+        VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        VkSubmitInfo submitInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &mImageAvailableSem[mCurrentFrame],
+            .pWaitDstStageMask = &waitStage,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &mCommandBuffers[mCurrentFrame],
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &mRenderFinishedSem[mCurrentFrame],
+        };
+
+        //submit work on the graphics queue, and once that work is complete singal mInFlightFence[mCurrentFrame]
+        if(auto res{vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence[mCurrentFrame])}; 
+            res != VK_SUCCESS)
+        {
+            throw DFException{"vkQueueSubmit failed", res};
+        }
+    }
+
+    {
+        VkPresentInfoKHR presentInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &mRenderFinishedSem[mCurrentFrame],
+            .swapchainCount = 1,
+            .pSwapchains = &mSwapChain,
+            .pImageIndices = &imageIndex,
+            //.pResults = nullptr
+        };
+
+        if(auto res {vkQueuePresentKHR(mDevice.getPresentQueue(), &presentInfo)})
+        {
+            if(res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR
+                || mWindow.wasFrameBuffResized())
+            {
+                mWindow.resetFrameBuffResizedFlag();
+                recreateSwapChain();
+            }
+            else if(res != VK_SUCCESS)
+            {
+                throw DFException{"vkQueuePresentKHR failed", res};
+            }
+        }
+    }
+
+    mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void VulkanRenderer::initImguiRenderInfo()
+{
+    auto device {mDevice.getLogicalDevice()};
+
+    VkDescriptorPool imguiDescPool {VK_NULL_HANDLE};
+    {
+        VkDescriptorPoolSize pool_sizes[] =
+        {
+            {
+                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 1
+            }
+        };
+
+        VkDescriptorPoolCreateInfo pool_info
+        {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets = 1,
+            .poolSizeCount = (U32)std::size(pool_sizes),
+            .pPoolSizes = pool_sizes
+        };
+
+        auto const res {vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiDescPool)};
+        if(res != VK_SUCCESS)
+            throw SystemInitException{"vkCreateDescriptorPool failed to make the imgui desc pool", res};
+    }
+
+    /*VkRenderPass imguiRenderPass {VK_NULL_HANDLE};
+    {
+        VkAttachmentDescription attachment = {};
+        attachment.format = wd->SurfaceFormat.format;
+        attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        attachment.loadOp = wd->ClearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        VkAttachmentReference color_attachment = {};
+        color_attachment.attachment = 0;
+        color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        VkSubpassDescription subpass = {};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &color_attachment;
+        VkSubpassDependency dependency = {};
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        dependency.dstSubpass = 0;
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.srcAccessMask = 0;
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        VkRenderPassCreateInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        info.attachmentCount = 1;
+        info.pAttachments = &attachment;
+        info.subpassCount = 1;
+        info.pSubpasses = &subpass;
+        info.dependencyCount = 1;
+        info.pDependencies = &dependency;
+
+        if(auto res {vkCreateRenderPass(device, &info, nullptr, &wd->RenderPass)};
+            res != VK_SUCCESS)
+        {
+            throw SystemInitException{
+                "vkCreateRenderPass failed to create the imgui render pass", res};
+        }
+    }*/
+
+    //pass vulkan info to imgui backend
+    auto queueFamilies = mDevice.getQueueFamilyIndices();
+    mImguiInitInfo.Instance = mDevice.getInstance();
+    mImguiInitInfo.PhysicalDevice = mDevice.getPhysicalDevice();
+    mImguiInitInfo.Device = mDevice.getLogicalDevice();
+    mImguiInitInfo.QueueFamily = *queueFamilies.graphicsFamilyIndex;
+    mImguiInitInfo.Queue = mDevice.getGraphicsQueue();
+    mImguiInitInfo.PipelineCache = nullptr;
+    mImguiInitInfo.DescriptorPool = imguiDescPool;
+    mImguiInitInfo.RenderPass = mRenderPass;
+    mImguiInitInfo.Subpass = 0;
+    mImguiInitInfo.MinImageCount = 3;
+    mImguiInitInfo.ImageCount = mSwapChainImages.size();
+    mImguiInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    mImguiInitInfo.Allocator = nullptr;
+    mImguiInitInfo.CheckVkResultFn = nullptr;
+    ImGui_ImplVulkan_Init(&mImguiInitInfo);
+
+    ////upload fonts to gpu
+    //cb.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    //ImGui_ImplVulkan_CreateFontsTexture();
+    //cb.end();
+    //vk::SubmitInfo si;
+    //si.commandBufferCount = cb.size();
+    //si.pCommandBuffers = cb.data();
+    //vk::Result res = device->getGraphicsQueue().submit(1, &si, {});
+    //device->getGraphicsQueue().waitIdle();
+
+    mImGuiRenderInfoInitialized = true;
+}
+
+void VulkanRenderer::initImageViews()
+{
+    mSwapChainImageViews.resize(mSwapChainImages.size());
+
+    for(size_t i = 0; VkImage img : mSwapChainImages)
+    {
+        VkImageViewCreateInfo createInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = img,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = mSwapChainImageFormat,
+        };
+
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        //createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        //createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        if(auto res{vkCreateImageView(mDevice.getLogicalDevice(), &createInfo, nullptr, 
+            &mSwapChainImageViews[i])}; res != VK_SUCCESS)
+        {
+            throw SystemInitException{"vkCreateFence failed", res};
+        }
+
+        ++i;
+    }
+}
+
+void VulkanRenderer::initRenderPass()
+{
+    auto const device {mDevice.getLogicalDevice()};
+
+    VkAttachmentDescription colorAttachment
+    {
+        .format = mSwapChainImageFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    };
+
+    VkAttachmentReference colorAttachmentRef
+    {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+  
+    VkSubpassDescription subpass
+    {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachmentRef,
+    };
+    
+    VkSubpassDependency subpassDependency
+    {
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+    };
+
+    VkRenderPassCreateInfo renderPassInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &colorAttachment,  
+        .subpassCount = 1,
+        .pSubpasses = &subpass,
+        .dependencyCount = 1,
+        .pDependencies = &subpassDependency
+    };
+
+    if(auto res{vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPass)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{"vkCreateRenderPass failed ", res};
     }
 }
 
@@ -210,311 +586,6 @@ void VulkanRenderer::initDescriptorPool()
     }
 }
 
-void VulkanRenderer::initImguiRenderInfo()
-{
-    //pass vulkan info to imgui backend
-    auto queueFamilies = mDevice.getQueueFamilyIndices();
-    mImguiInitInfo.Instance = mDevice.getInstance();
-    mImguiInitInfo.PhysicalDevice = mDevice.getPhysicalDevice();
-    mImguiInitInfo.Device = mDevice.getLogicalDevice();
-    mImguiInitInfo.QueueFamily = *queueFamilies.graphicsFamilyIndex;
-    mImguiInitInfo.Queue = mDevice.getGraphicsQueue();
-    mImguiInitInfo.PipelineCache = nullptr;
-    mImguiInitInfo.DescriptorPool = mDescriptorPool;
-    mImguiInitInfo.RenderPass = mRenderPass;
-    mImguiInitInfo.Subpass = 0;
-    mImguiInitInfo.MinImageCount = 3;
-    mImguiInitInfo.ImageCount = mSwapChainImages.size();
-    mImguiInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    mImguiInitInfo.Allocator = nullptr;
-    mImguiInitInfo.CheckVkResultFn = [](VkResult){};//will change later
-    ImGui_ImplVulkan_Init(&mImguiInitInfo);
-
-    ////upload fonts to gpu
-    //cb.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-    //ImGui_ImplVulkan_CreateFontsTexture();
-    //cb.end();
-    //vk::SubmitInfo si;
-    //si.commandBufferCount = cb.size();
-    //si.pCommandBuffers = cb.data();
-    //vk::Result res = device->getGraphicsQueue().submit(1, &si, {});
-    //device->getGraphicsQueue().waitIdle();
-
-    mImGuiRenderInfoInitialized = true;
-}
-
-void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
-{
-    static float secondsAccumulator{};
-    secondsAccumulator += dt;
-
-    MVPMatrices matrices
-    {
-        .model = glm::rotate(glm::mat4(1.0), secondsAccumulator * glm::radians(50.0f),
-            glm::vec3(0.0, 1.0, 1.0)),
-
-        .view = glm::lookAt(glm::vec3(1.2f, 0.0f, 0.0f),
-            glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-
-        .proj = glm::perspective(glm::radians(45.0f),
-            mSwapChainExtent.width / (float)mSwapChainExtent.height, 0.1f, 10.0f)
-    };
-
-    matrices.proj[1][1] *= -1;
-
-    memcpy(mUniformBuffersMapped[currentFrame], &matrices, sizeof matrices);
-}
-
-void VulkanRenderer::initImageViews()
-{
-    mSwapChainImageViews.resize(mSwapChainImages.size());
-
-    for(size_t i = 0; VkImage img : mSwapChainImages)
-    {
-        VkImageViewCreateInfo createInfo
-        {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = img,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = mSwapChainImageFormat,
-        };
-
-        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        //createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1;
-        //createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.layerCount = 1;
-
-        if(auto res{vkCreateImageView(mDevice.getLogicalDevice(), &createInfo, nullptr, 
-            &mSwapChainImageViews[i])}; res != VK_SUCCESS)
-        {
-            throw SystemInitException{"vkCreateFence failed", res};
-        }
-
-        ++i;
-    }
-}
-
-void VulkanRenderer::initRenderPass()
-{
-    auto const device {mDevice.getLogicalDevice()};
-
-    VkAttachmentDescription colorAttachment
-    {
-        .format = mSwapChainImageFormat,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    };
-
-    VkAttachmentReference colorAttachmentRef
-    {
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-  
-    VkSubpassDescription subpass
-    {
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachmentRef,
-    };
-    
-    VkSubpassDependency subpassDependency
-    {
-        .srcSubpass = VK_SUBPASS_EXTERNAL,
-        .dstSubpass = 0,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-    };
-
-    VkRenderPassCreateInfo renderPassInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = 1,
-        .pAttachments = &colorAttachment,  
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = 1,
-        .pDependencies = &subpassDependency
-    };
-
-    if(auto res{vkCreateRenderPass(device, &renderPassInfo, nullptr, &mRenderPass)};
-        res != VK_SUCCESS)
-    {
-        throw SystemInitException{"vkCreateRenderPass failed ", res};
-    }  
-}
-
-void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer, 
-    uint32_t imageIndex, F32 deltaTime, glm::vec<2, double> mousePos)
-{
-    VkCommandBufferBeginInfo beginInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        //.flags = 0,
-        //.pInheritanceInfo = nullptr
-    };
-
-    if(auto res{vkBeginCommandBuffer(cmdBuffer, &beginInfo)}; res != VK_SUCCESS)
-        throw DFException{"vkBeginCommandBuffer failed", res};
-    
-    VkClearValue clearColor {0.0f, 0.0f, 0.0f, 1.0f};
-    VkRenderPassBeginInfo renderPassInfo
-    {
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass = mRenderPass,
-        .framebuffer = mSwapChainFramebuffers[imageIndex],
-        .clearValueCount = 1,
-        .pClearValues = &clearColor
-    };
-    renderPassInfo.renderArea.extent = mSwapChainExtent;
-
-    vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
-
-    VkViewport const viewport
-    {
-        .x = 0.0f,
-        .y = 0.0f,
-        .width = static_cast<float>(mSwapChainExtent.width),
-        .height = static_cast<float>(mSwapChainExtent.height),
-        .minDepth = 0.0f,
-        .maxDepth = 1.0f
-    };
-    vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
-    
-    VkRect2D const scissor
-    {
-        .offset = {0, 0},
-        .extent = mSwapChainExtent
-    };
-    vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
-
-    static F32 incTime{0.0f};
-    incTime += deltaTime;
-
-    fragShaderPushConstants pushConstants
-    {
-        .increasingTimeSeconds = incTime,
-        .width = mSwapChainExtent.width,
-        .height = mSwapChainExtent.height,
-        .mousePosX = (float)mousePos.x,
-        .mousePosY = (float)mousePos.y
-    };
-
-    vkCmdPushConstants(cmdBuffer, mPipelineLayout,
-        VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof fragShaderPushConstants, &pushConstants);
-
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
-
-    VkBuffer vertexBuffers[] = {mVertexBuff};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(cmdBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(cmdBuffer, mIndexBuff, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-        mPipelineLayout, 0, 1, &mDescriptorSets[mCurrentFrame], 0, nullptr);
-
-    vkCmdDrawIndexed(cmdBuffer, mIndices.size(), 1, 0, 0, 0);
-    vkCmdEndRenderPass(cmdBuffer);
-
-    if(auto res{vkEndCommandBuffer(cmdBuffer)}; res != VK_SUCCESS)
-        throw DFException{"vkEndCommandBuffer failed", res};
-}
-
-void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
-{
-    auto const device {mDevice.getLogicalDevice()};
-    auto const graphicsQueue {mDevice.getGraphicsQueue()};
-    
-    //wait on mInFlightFence[mCurrentFrame] to be signaled, which indicates that the graphics queue
-    //is done with mCommandBuffers[mCurrentFrame], and it can now be recorded to again.
-    vkWaitForFences(device, 1, &mInFlightFence[mCurrentFrame], VK_TRUE, UINT64_MAX);
-    U32 imageIndex{0};
-
-    {
-        auto const res = vkAcquireNextImageKHR(device, mSwapChain, 
-            UINT64_MAX, mImageAvailableSem[mCurrentFrame], VK_NULL_HANDLE, &imageIndex);
-
-        if(res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
-            throw DFException{"vkAcquireNextImageKHR failed", res};
-
-        if(res == VK_ERROR_OUT_OF_DATE_KHR)
-        {
-            recreateSwapChain();
-            return;
-        }
-    }
-    
-    vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
-    vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
-    recordCommands(mCommandBuffers[mCurrentFrame], imageIndex, deltaTime, mousePos);
-    updateUniformBuffer(mCurrentFrame, (float)deltaTime);
-
-    {
-
-        VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        VkSubmitInfo submitInfo
-        {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &mImageAvailableSem[mCurrentFrame],
-            .pWaitDstStageMask = &waitStage,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &mCommandBuffers[mCurrentFrame],
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores = &mRenderFinishedSem[mCurrentFrame],
-        };
-
-        //submit work on the graphics queue, and once that work is complete singal mInFlightFence[mCurrentFrame]
-        if(auto res{vkQueueSubmit(graphicsQueue, 1, &submitInfo, mInFlightFence[mCurrentFrame])}; 
-            res != VK_SUCCESS)
-        {
-            throw DFException{"vkQueueSubmit failed", res};
-        }
-    }
-
-    {
-        VkPresentInfoKHR presentInfo
-        {
-            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &mRenderFinishedSem[mCurrentFrame],
-            .swapchainCount = 1,
-            .pSwapchains = &mSwapChain,
-            .pImageIndices = &imageIndex,
-            //.pResults = nullptr
-        };
-
-        if(auto res {vkQueuePresentKHR(mDevice.getPresentQueue(), &presentInfo)})
-        {
-            if(res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR
-                || mWindow.wasFrameBuffResized())
-            {
-                mWindow.resetFrameBuffResizedFlag();
-                recreateSwapChain();
-            }
-            else if(res != VK_SUCCESS)
-            {
-                throw DFException{"vkQueuePresentKHR failed", res};
-            }
-        }
-    }
-
-    mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
 void VulkanRenderer::initCommandBuffers()
 {
     VkCommandBufferAllocateInfo const commandBuffAllocInfo
@@ -568,8 +639,6 @@ void VulkanRenderer::cleanupSwapChain()
 
 void VulkanRenderer::recreateSwapChain()
 {
-    auto device { mDevice.getLogicalDevice() };
-
     auto frameBuffSize = mWindow.getFBSize();
     while(frameBuffSize.x == 0 || frameBuffSize.y == 0)
     {
@@ -577,8 +646,7 @@ void VulkanRenderer::recreateSwapChain()
         glfwWaitEvents();
     }
 
-    vkDeviceWaitIdle(device);
-
+    vkDeviceWaitIdle(mDevice.getLogicalDevice());
     initSwapChain();
     initImageViews();
     initFramebuffers();
@@ -608,7 +676,6 @@ void VulkanRenderer::initFramebuffers()
         {
             throw SystemInitException{"vkCreateFramebuffer failed", res};
         }
-
     }
 }
 
@@ -641,11 +708,11 @@ static VkExtent2D chooseSwapChainExtent(VkSurfaceCapabilitiesKHR const& surfaceC
 [[nodiscard]]
 static VkPresentModeKHR chooseSwapChainPresentMode(std::span<const VkPresentModeKHR> availableModes)
 {
-    //for(const auto& availablePresentMode : availableModes)
-    //{
-    //    if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-    //        return availablePresentMode;
-    //}
+    for(const auto& availablePresentMode : availableModes)
+    {
+        if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+            return availablePresentMode;
+    }
 
     return VK_PRESENT_MODE_FIFO_KHR; //FIFO is guaranteed to be available
 }
@@ -971,7 +1038,7 @@ void VulkanRenderer::initPipeline()
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};
 
     mFragShaderModule = compileGLSLShaders(device, 
-        "resources/shaders/rainbowStrip.frag", shaderc_fragment_shader);
+        "resources/shaders/MengerTunnel.frag", shaderc_fragment_shader);
 
     if(mFragShaderModule == VK_NULL_HANDLE)
         throw SystemInitException{"Problem creating shader modules/compiling shaders"};

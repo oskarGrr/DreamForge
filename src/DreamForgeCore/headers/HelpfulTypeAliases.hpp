@@ -1,9 +1,6 @@
 #pragma once
 #include <cstdint>
 
-//Just a header for some useful type aliases that didn't 
-//have another .h home so I grouped them together here.
-
 using Index_t = uint64_t;
 
 using U64 = uint64_t;

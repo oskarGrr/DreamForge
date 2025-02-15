@@ -33,6 +33,7 @@ public:
 
     GLFWwindow* getRawWindow() const {return mWindow;}
 
+    //get frame buffer size
     glm::vec<2, int> getFBSize() const
     {
         int x{0}, y{0};
@@ -42,6 +43,7 @@ public:
 
     bool wasFrameBuffResized() const {return mFrameBuffResized;}
     void resetFrameBuffResizedFlag() {mFrameBuffResized = false;}
+    void displayTitleFPS(double dt);
 
     bool shouldClose() const;
 

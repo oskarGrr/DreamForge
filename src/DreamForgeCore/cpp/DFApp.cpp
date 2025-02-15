@@ -34,24 +34,21 @@ namespace DF
 {
 
 [[nodiscard]] std::chrono::steady_clock::time_point 
-DreamForgeApp::startOfLoop(double dt)
+DreamForgeApp::startOfLoop()
 {
     const auto start = std::chrono::steady_clock::now();
-
-    //ImGui_ImplVulkan_NewFrame();
-    //ImGui_ImplGlfw_NewFrame();
-    //ImGui::NewFrame();
-
-    mRenderer.update(dt, getMousePos());
-
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
     processWindowEvents();
-
     return start;
 }
 
 double DreamForgeApp::endOfLoop(std::chrono::steady_clock::time_point const frameStartTime)
 {
-    //ImGui::Render();
+    ImGui::Render();
+
+    mRenderer.update(mFrameTime, getMousePos());
 
     //ImGuiIO& io = ImGui::GetIO();
     //if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -60,14 +57,14 @@ double DreamForgeApp::endOfLoop(std::chrono::steady_clock::time_point const fram
     //    ImGui::RenderPlatformWindowsDefault();
     //}
 
-    //ImGui::EndFrame();
+    ImGui::EndFrame();
 
     const auto end = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::chrono::seconds::period>(end - frameStartTime).count();
 }
 
 DreamForgeApp::DreamForgeApp()
-    try : mWindow{}, mIsAppRunning{true}
+try : mWindow{}, mIsAppRunning{true}
 {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
@@ -88,17 +85,14 @@ catch(SystemInitException const& e)
 
 void DreamForgeApp::run()
 {
-    double dt{};
-    double runningAvg{};
     while( ! mWindow.shouldClose() )
     {
-        auto startTime {startOfLoop(dt)};
+        auto startTime {startOfLoop()};
 
-        runningAvg = runningAvg * .99 + dt * 0.01;
-        glfwSetWindowTitle(mWindow.getRawWindow(),
-            std::format("FPS: {}", static_cast<unsigned>(1/runningAvg)).c_str());
+        mWindow.displayTitleFPS(mFrameTime);
+        imguiDraw();//call the app defined override for imguiDraw
 
-        dt = endOfLoop(startTime);
+        mFrameTime = endOfLoop(startTime);
     }
 }
 
@@ -121,10 +115,10 @@ DreamForgeApp::guiContext::guiContext(NonOwningPtr<GLFWwindow> wnd)
     context = ImGui::CreateContext();
     ImGui_ImplGlfw_InitForVulkan(wnd, true);
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    /*io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;*/
 }
 
 DreamForgeApp::guiContext::~guiContext()

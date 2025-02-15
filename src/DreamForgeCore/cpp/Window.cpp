@@ -1,4 +1,5 @@
 #include <iostream>
+#include <format>
 
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
@@ -51,6 +52,13 @@ VkSurfaceKHR Window::createVulkanSurface(VkInstance instance) const
 void Window::maximize()
 {
     glfwMaximizeWindow(mWindow);
+}
+
+void Window::displayTitleFPS(double dt)
+{
+    static double avgDt {};
+    avgDt = avgDt * .99 + dt * 0.01;
+    glfwSetWindowTitle(mWindow, std::format("FPS: {}", (U32)(1/avgDt)).c_str());
 }
 
 bool Window::shouldClose() const

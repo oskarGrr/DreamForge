@@ -9,22 +9,35 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+//namespace Dream Forge Editor
+namespace DFE
+{
+
 class EditorApp : public DF::DreamForgeApp
 {
 public:
     EditorApp()
     {
-        /*ImGui::SetCurrentContext(getImGuiContext());
-        DFE::themeDarkRedOrange();*/
+        ImGui::SetCurrentContext(getImGuiContext());
+        DFE::themeDarkRedOrange();
+    }
+
+    void imguiDraw() const override
+    {
+        ImGui::ShowDemoWindow();
     }
 
     ~EditorApp()=default;
 };
 
+}
+
 int main(int argumentCount, char** argumentVector)
 {
-    EditorApp app;
-
+    DFE::EditorApp app;
     DF::Logger::get().stdoutInfo("hello from the editor app\n");
+
     app.run();
+
+    return EXIT_SUCCESS;
 }
