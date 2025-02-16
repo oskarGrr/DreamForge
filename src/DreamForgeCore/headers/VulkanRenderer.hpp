@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <span>
 #include <array>
 #include "VulkanDevice.hpp"
 #include "HelpfulTypeAliases.hpp"
@@ -36,8 +37,9 @@ private:
 
     struct Vertex
     {
-        glm::vec2 pos;
+        glm::vec3 pos;
         glm::vec3 color;
+        glm::vec2 textureCoords;
 
         static auto getBindingDescription()
         {
@@ -53,17 +55,22 @@ private:
         
         static auto getAttributeDescriptions() 
         {
-            std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+            std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
             attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
             attributeDescriptions[1].binding = 0;
             attributeDescriptions[1].location = 1;
             attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
             attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+            attributeDescriptions[2].binding = 0;
+            attributeDescriptions[2].location = 2;
+            attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+            attributeDescriptions[2].offset = offsetof(Vertex, textureCoords);
 
             return attributeDescriptions;
         }
@@ -72,14 +79,49 @@ private:
     constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
     U32 mCurrentFrame {0};
 
-    std::array<Vertex, 4> const mVertices
-    {
-        Vertex{ {-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        Vertex{ { 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        Vertex{ { 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
-        Vertex{ {-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}}
+    std::vector<Vertex> mVertices 
+    {   
+        // Front face
+        {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+        {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
+        {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 0.0f}},
+        {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 0.0f}},
+                                    
+        {{-0.5f, -0.5f,  0.5f}, {}, {1.0f, 1.0f}},
+        {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 1.0f}},
+        {{0.5f,  0.5f,  0.5f},  {}, {0.0f, 0.0f}},
+        {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
+
+        {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+        {{0.5f,   0.5f,  -0.5f},{}, {1.0f, 1.0f}},
+        {{0.5f,   0.5f,  0.5f}, {}, {1.0f, 0.0f}},
+        {{-0.5f,  0.5f,  0.5f}, {}, {0.0f, 0.0f}},
+
+        {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+        {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
+        {{0.5f, -0.5f,  0.5f},  {}, {1.0f, 0.0f}},
+        {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
+
+        {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+        {{-0.5f,  0.5f, -0.5f}, {}, {1.0f, 1.0f}},
+        {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
+        {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
+
+        {{0.5f, -0.5f, -0.5f},  {}, {0.0f, 1.0f}},
+        {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 1.0f}},
+        {{0.5f,  0.5f,  0.5f},  {}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 0.0f}},
     };
-    std::array<U32, 6> const mIndices {0, 1, 2, 2, 3, 0};
+
+    std::vector<U32> mIndices
+    {
+        0, 3, 2,  2, 1, 0,
+        4, 5, 6,  6, 7, 4,
+        8, 11, 10,  10, 9, 8,
+        12, 13, 14,  14, 15, 12,
+        16, 19, 18,  18, 17, 16,
+        20, 21, 22,  22, 23, 20
+    };
 
     VkBuffer mVertexBuff {VK_NULL_HANDLE};
     VkBuffer mIndexBuff {VK_NULL_HANDLE};
@@ -103,8 +145,8 @@ private:
     VkExtent2D mSwapChainExtent{};
 
     VkRenderPass mRenderPass {VK_NULL_HANDLE};
-    VkDescriptorPool mDescriptorPool{VK_NULL_HANDLE};
-    
+    VkDescriptorPool mDescriptorPool {VK_NULL_HANDLE};
+     
     struct fragShaderPushConstants
     {
         float increasingTimeSeconds{};
@@ -136,12 +178,17 @@ private:
     VkImageView mTextureImageView {VK_NULL_HANDLE};
     VkSampler mTextureSampler {VK_NULL_HANDLE};
 
+    VkImage mDepthImage {VK_NULL_HANDLE};
+    VkDeviceMemory mDepthImageMemory {VK_NULL_HANDLE};
+    VkImageView mDepthImageView {VK_NULL_HANDLE};
+
     void updateUniformBuffer(U32 currentFrame, float dt);
 
     void recordCommands(VkCommandBuffer commandBuffer, 
         U32 imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
 
-    void initPipeline();
+    void initPipelineAndLayout();
+    void initShaderModules();
     void initImageViews();
     void initRenderPass();
     void initCommandPool();
@@ -158,10 +205,15 @@ private:
     void initTextureSampler();
     void initVertexBuffer();
     void initIndexBuffer();
+    void initDepthRescources();
 
     void cleanupSwapChain();
     void recreateSwapChain();
 
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    VkFormat findSupportedFormat(std::span<const VkFormat> candidates,
+        VkImageTiling tiling, VkFormatFeatureFlags features);
+    VkFormat findDepthFormat();
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer cmdBuffer);
     U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);

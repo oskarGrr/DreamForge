@@ -8,6 +8,7 @@
         "glm",
         "spdlog",
         "stb",
+        "tinyobjloader",
         {
             "name": "imgui",
             "features": [ "docking-experimental", "vulkan-binding", "glfw-binding" ]
