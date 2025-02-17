@@ -6,6 +6,7 @@
 #include <fstream>
 #include <span>
 #include <chrono>
+#include <unordered_map>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -16,6 +17,8 @@
 #include <imgui_impl_vulkan.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 
 #define FORMAT VK_FORMAT_R8G8B8A8_UNORM
 
@@ -37,6 +40,7 @@ VulkanRenderer::VulkanRenderer(Window& wnd) : mWindow{wnd}, mDevice{wnd}
     initTextureSampler();
     initDescriptorSets();
     initFramebuffers();
+    loadModel();
     initVertexBuffer();
     initIndexBuffer();
     initCommandBuffers();
@@ -85,17 +89,16 @@ VulkanRenderer::~VulkanRenderer()
     }
 }
 
-void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt)
+void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt, float modelAngle)
 {
     static float secondsAccumulator{};
     secondsAccumulator += dt;
 
     MVPMatrices matrices
     {
-        .model = glm::rotate(glm::mat4(1.0), secondsAccumulator * glm::radians(-40.0f),
-            glm::vec3(0, 0, 1.0)),
+        .model = glm::rotate(glm::mat4(1.0), modelAngle, glm::vec3(0, 0, 1.0)),
 
-        .view = glm::lookAt(glm::vec3(1.9f, 1.9f, -1.9f),
+        .view = glm::lookAt(glm::vec3(1.7f, 1.7f, 1.7f),
             glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
 
         .proj = glm::perspective(glm::radians(45.0f),
@@ -190,7 +193,7 @@ void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer,
         throw DFException{"vkEndCommandBuffer failed", res};
 }
 
-void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
+void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos, float modelAngle)
 {
     auto const device {mDevice.getLogicalDevice()};
     auto const graphicsQueue {mDevice.getGraphicsQueue()};
@@ -217,7 +220,7 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
     vkResetFences(device, 1, &mInFlightFence[mCurrentFrame]);
     vkResetCommandBuffer(mCommandBuffers[mCurrentFrame], 0);
     recordCommands(mCommandBuffers[mCurrentFrame], imageIndex, deltaTime, mousePos);
-    updateUniformBuffer(mCurrentFrame, (float)deltaTime);
+    updateUniformBuffer(mCurrentFrame, (float)deltaTime, modelAngle);
 
     {
         VkPipelineStageFlags const waitStage {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -271,6 +274,11 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
     mCurrentFrame = (mCurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+void VulkanRenderer::waitForGPUIdle() const
+{
+    vkDeviceWaitIdle(mDevice.getLogicalDevice());
+}
+
 [[nodiscard]] U32 VulkanRenderer::findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties physicalMemProperties{};
@@ -286,6 +294,54 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos)
     }
 
     throw SystemInitException{"could not find a suitable physical memory type"};
+}
+
+void VulkanRenderer::loadModel()
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    if( ! tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, sModelFpath.data()) )
+        throw SystemInitException{warn + err};
+
+    std::unordered_map<Vertex, U32> uniqueVertices{};
+    
+    mVertices.reserve(5'000);
+    mIndices.reserve(10'000);
+    
+    for(auto const& shape : shapes)
+    {
+        for(int i = 0; auto const& index : shape.mesh.indices)
+        {
+            Vertex vertex
+            {
+                .pos = 
+                {
+                    attrib.vertices[3 * index.vertex_index],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]
+                },
+
+                .color = {1.0f, 1.0f, 1.0f},
+
+                .textureCoords =
+                {
+                    attrib.texcoords[2 * index.texcoord_index],
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                }
+            };
+
+            if( ! uniqueVertices.contains(vertex) )
+            {
+                uniqueVertices[vertex] = i++;
+                mVertices.push_back(vertex);
+            }
+            
+            mIndices.push_back(uniqueVertices[vertex]);
+        }
+    }
 }
 
 void VulkanRenderer::createImage(U32 width, U32 height, VkFormat format,
@@ -468,7 +524,7 @@ void VulkanRenderer::initTextureImage()
 {
     int texWidth{}, texHeight{}, texChannels{};
 
-    stbi_uc* pixels {stbi_load("resources/textures/smallSquareChuck.jpg", &texWidth,
+    stbi_uc* pixels {stbi_load(sTextureFpath.data(), &texWidth,
         &texHeight, &texChannels, STBI_rgb_alpha)};
 
     if ( ! pixels )

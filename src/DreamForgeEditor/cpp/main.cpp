@@ -24,7 +24,7 @@ public:
 
     void imguiDraw() const override
     {
-        ImGui::ShowDemoWindow();
+        
     }
 
     ~EditorApp()=default;

@@ -33,6 +33,22 @@ auto& operator<<(std::ostream& os, glm::vec<R, VecType> const& vec)
 namespace DF
 {
 
+struct debugWindowResult 
+{
+    float modelAngle{};
+};
+
+static debugWindowResult debugWindow()
+{
+    //ImGui::ShowDemoWindow();
+    static float angle{};
+    float const tau {6.283185};
+
+    ImGui::SliderFloat("model angle", &angle, 0.0f, tau * 3);
+
+    return {angle};
+}
+
 [[nodiscard]] std::chrono::steady_clock::time_point 
 ApplicationBase::startOfLoop()
 {
@@ -46,9 +62,11 @@ ApplicationBase::startOfLoop()
 
 double ApplicationBase::endOfLoop(std::chrono::steady_clock::time_point const frameStartTime)
 {
+    auto const debugGuiResult {debugWindow()};
+
     ImGui::Render();
 
-    mRenderer.update(mFrameTime, getMousePos());
+    mRenderer.update(mFrameTime, getMousePos(), debugGuiResult.modelAngle);
 
     //ImGuiIO& io = ImGui::GetIO();
     //if(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -95,7 +113,7 @@ void ApplicationBase::run()
         auto startTime {startOfLoop()};
 
         mWindow.displayTitleFPS(mFrameTime);
-        imguiDraw();//call the app defined override for imguiDraw
+        //imguiDraw();//call the app defined override for imguiDraw
 
         mFrameTime = endOfLoop(startTime);
     }

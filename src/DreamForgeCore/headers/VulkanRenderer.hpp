@@ -2,12 +2,73 @@
 #include <vector>
 #include <span>
 #include <array>
+#include <string_view>
+
 #include "VulkanDevice.hpp"
 #include "HelpfulTypeAliases.hpp"
 #include <glm/glm.hpp>
 #include <imgui_impl_vulkan.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 class Window;
+
+struct Vertex
+{
+    glm::vec3 pos;
+    glm::vec3 color;
+    glm::vec2 textureCoords;
+
+    bool operator<=>(const Vertex&) const = default;
+
+    static auto getBindingDescription()
+    {
+        VkVertexInputBindingDescription bindingDescription
+        {
+            .binding = 0,
+            .stride = sizeof(Vertex),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        };
+
+        return bindingDescription;
+    }
+    
+    static auto getAttributeDescriptions() 
+    {
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, textureCoords);
+
+        return attributeDescriptions;
+    }
+};
+
+namespace std 
+{
+    template<> struct hash<Vertex>
+    {
+        size_t operator()(Vertex const& v) const 
+        {
+            return ((hash<glm::vec3>()(v.pos) ^
+                (hash<glm::vec3>()(v.color) << 1)) >> 1) ^
+                (hash<glm::vec2>()(v.textureCoords) << 1);
+        }
+    };
+}
 
 namespace DF
 {
@@ -21,9 +82,9 @@ public:
 
     void initImguiRenderInfo();
 
-    void update(F64 deltaTime, glm::vec<2, double> mousePos);
+    void update(F64 deltaTime, glm::vec<2, double> mousePos, float modelAngle);
 
-    void waitForGPUIdle() const {vkDeviceWaitIdle(mDevice.getLogicalDevice());}
+    void waitForGPUIdle() const;
 
 private:
 
@@ -35,93 +96,55 @@ private:
         glm::mat4 proj;
     };
 
-    struct Vertex
-    {
-        glm::vec3 pos;
-        glm::vec3 color;
-        glm::vec2 textureCoords;
-
-        static auto getBindingDescription()
-        {
-            VkVertexInputBindingDescription bindingDescription
-            {
-                .binding = 0,
-                .stride = sizeof(Vertex),
-                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
-            };
-
-            return bindingDescription;
-        }
-        
-        static auto getAttributeDescriptions() 
-        {
-            std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-            attributeDescriptions[0].binding = 0;
-            attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-            attributeDescriptions[1].binding = 0;
-            attributeDescriptions[1].location = 1;
-            attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-            attributeDescriptions[2].binding = 0;
-            attributeDescriptions[2].location = 2;
-            attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[2].offset = offsetof(Vertex, textureCoords);
-
-            return attributeDescriptions;
-        }
-    };
-
     constexpr static U32 MAX_FRAMES_IN_FLIGHT {2};
     U32 mCurrentFrame {0};
 
-    std::vector<Vertex> mVertices 
-    {   
-        // Front face
-        {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-        {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
-        {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 0.0f}},
-        {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 0.0f}},
-                                    
-        {{-0.5f, -0.5f,  0.5f}, {}, {1.0f, 1.0f}},
-        {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 1.0f}},
-        {{0.5f,  0.5f,  0.5f},  {}, {0.0f, 0.0f}},
-        {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
+    std::vector<Vertex> mVertices;
+    std::vector<U32> mIndices;
 
-        {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-        {{0.5f,   0.5f,  -0.5f},{}, {1.0f, 1.0f}},
-        {{0.5f,   0.5f,  0.5f}, {}, {1.0f, 0.0f}},
-        {{-0.5f,  0.5f,  0.5f}, {}, {0.0f, 0.0f}},
+    //std::vector<Vertex> mVertices 
+    //{   
+    //    // Front face
+    //    {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+    //    {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
+    //    {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 0.0f}},
+    //    {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 0.0f}},
+    //                                
+    //    {{-0.5f, -0.5f,  0.5f}, {}, {1.0f, 1.0f}},
+    //    {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 1.0f}},
+    //    {{0.5f,  0.5f,  0.5f},  {}, {0.0f, 0.0f}},
+    //    {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
 
-        {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-        {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
-        {{0.5f, -0.5f,  0.5f},  {}, {1.0f, 0.0f}},
-        {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
+    //    {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+    //    {{0.5f,   0.5f,  -0.5f},{}, {1.0f, 1.0f}},
+    //    {{0.5f,   0.5f,  0.5f}, {}, {1.0f, 0.0f}},
+    //    {{-0.5f,  0.5f,  0.5f}, {}, {0.0f, 0.0f}},
 
-        {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-        {{-0.5f,  0.5f, -0.5f}, {}, {1.0f, 1.0f}},
-        {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
-        {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
+    //    {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+    //    {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
+    //    {{0.5f, -0.5f,  0.5f},  {}, {1.0f, 0.0f}},
+    //    {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
 
-        {{0.5f, -0.5f, -0.5f},  {}, {0.0f, 1.0f}},
-        {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 1.0f}},
-        {{0.5f,  0.5f,  0.5f},  {}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 0.0f}},
-    };
+    //    {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
+    //    {{-0.5f,  0.5f, -0.5f}, {}, {1.0f, 1.0f}},
+    //    {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
+    //    {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
 
-    std::vector<U32> mIndices
-    {
-        0, 3, 2,  2, 1, 0,
-        4, 5, 6,  6, 7, 4,
-        8, 11, 10,  10, 9, 8,
-        12, 13, 14,  14, 15, 12,
-        16, 19, 18,  18, 17, 16,
-        20, 21, 22,  22, 23, 20
-    };
+    //    {{0.5f, -0.5f, -0.5f},  {}, {0.0f, 1.0f}},
+    //    {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 1.0f}},
+    //    {{0.5f,  0.5f,  0.5f},  {}, {1.0f, 0.0f}},
+    //    {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 0.0f}},
+    //};
+
+    //std::vector<U32> mIndices
+    //{
+    //    0, 3, 2,  2, 1, 0,
+    //    4, 5, 6,  6, 7, 4,
+    //    8, 11, 10,  10, 9, 8,
+    //    12, 13, 14,  14, 15, 12,
+    //    16, 19, 18,  18, 17, 16,
+    //    20, 21, 22,  22, 23, 20
+    //};
 
     VkBuffer mVertexBuff {VK_NULL_HANDLE};
     VkBuffer mIndexBuff {VK_NULL_HANDLE};
@@ -182,10 +205,13 @@ private:
     VkDeviceMemory mDepthImageMemory {VK_NULL_HANDLE};
     VkImageView mDepthImageView {VK_NULL_HANDLE};
 
-    void updateUniformBuffer(U32 currentFrame, float dt);
+    void updateUniformBuffer(U32 currentFrame, float dt, float modelAngle);
 
     void recordCommands(VkCommandBuffer commandBuffer, 
         U32 imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
+
+    inline static std::string_view const sModelFpath = "resources/models/viking_room.obj";
+    inline static std::string_view const sTextureFpath = "resources/textures/viking_room.png";
 
     void initPipelineAndLayout();
     void initShaderModules();
@@ -217,6 +243,7 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer cmdBuffer);
     U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);
+    void loadModel();
     void createImage(U32 width, U32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, 
         VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void copyBufferToImage(VkBuffer buffer, VkImage image, U32 width, U32 height);
