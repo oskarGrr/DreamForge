@@ -196,6 +196,7 @@ private:
     bool mImGuiRenderInfoInitialized {false};
     ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
 
+    U32 mMipMapLevels {1};
     VkImage mTextureImage {VK_NULL_HANDLE};
     VkDeviceMemory mTextureImageMemory {VK_NULL_HANDLE};
     VkImageView mTextureImageView {VK_NULL_HANDLE};
@@ -215,7 +216,7 @@ private:
 
     void initPipelineAndLayout();
     void initShaderModules();
-    void initImageViews();
+    void initSwapChainImageViews();
     void initRenderPass();
     void initCommandPool();
     void initCommandBuffers();
@@ -236,18 +237,31 @@ private:
     void cleanupSwapChain();
     void recreateSwapChain();
 
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, U32 mipLevels);
+
     VkFormat findSupportedFormat(std::span<const VkFormat> candidates,
         VkImageTiling tiling, VkFormatFeatureFlags features);
+
     VkFormat findDepthFormat();
+
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer cmdBuffer);
+
+    void genMipMaps(VkImage img, VkFormat imgFmt, U32 width, U32 height, U32 mipLevels);
+
     U32 findMemoryType(U32 typeFilter, VkMemoryPropertyFlags properties);
+
     void loadModel();
-    void createImage(U32 width, U32 height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, 
-        VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+
+    void createImage(U32 width, U32 height, U32 mipLevels, VkFormat format, 
+        VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, 
+        VkImage& image, VkDeviceMemory& imageMemory);
+
     void copyBufferToImage(VkBuffer buffer, VkImage image, U32 width, U32 height);
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+    void transitionImageLayout(VkImage image, VkFormat format, 
+        VkImageLayout oldLayout, VkImageLayout newLayout, U32 mipLevels);
+
     void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, 
         VkMemoryPropertyFlags properties, VkBuffer& outBuffer, VkDeviceMemory& outMemory);
