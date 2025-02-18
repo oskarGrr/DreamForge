@@ -78,6 +78,22 @@ VulkanDevice::~VulkanDevice()
     vkDestroyInstance(mInstance, nullptr);
 }
 
+VkSampleCountFlagBits VulkanDevice::getMaxUsableSampleCount() const
+{
+    auto const colorSampleCounts {mDeviceProperties.limits.framebufferColorSampleCounts};
+    auto const depthSampleCounts {mDeviceProperties.limits.framebufferDepthSampleCounts};
+    VkSampleCountFlags const sampleCountFlags {colorSampleCounts & depthSampleCounts};
+
+    if(sampleCountFlags & VK_SAMPLE_COUNT_64_BIT) return VK_SAMPLE_COUNT_64_BIT;
+    if(sampleCountFlags & VK_SAMPLE_COUNT_32_BIT) return VK_SAMPLE_COUNT_32_BIT;
+    if(sampleCountFlags & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT;
+    if(sampleCountFlags & VK_SAMPLE_COUNT_8_BIT)  return VK_SAMPLE_COUNT_8_BIT;
+    if(sampleCountFlags & VK_SAMPLE_COUNT_4_BIT)  return VK_SAMPLE_COUNT_4_BIT;
+    if(sampleCountFlags & VK_SAMPLE_COUNT_2_BIT)  return VK_SAMPLE_COUNT_2_BIT;
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 //return the indices to the graphics and present queue families for mPhysicalDevice
 VulkanDevice::QueueFamilyIndices VulkanDevice::getQueueFamilyIndicesImpl(VkPhysicalDevice physicalDeviceHandle) const
 {
@@ -236,6 +252,8 @@ void VulkanDevice::selectPhysicalDevice()
         throw SystemInitException{"failed to find a suitable physical device"};
 
     vkGetPhysicalDeviceProperties(mPhysicalDevice, &mDeviceProperties);
+
+    mMaxMSAASampleCount = getMaxUsableSampleCount();
 
     std::string deviceFoundMsg;
     if(mDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)

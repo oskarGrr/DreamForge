@@ -88,7 +88,8 @@ public:
 
 private:
 
-    //used as a uniform buffer object
+    VulkanDevice mDevice;
+
     struct MVPMatrices
     {
         glm::mat4 model;
@@ -158,7 +159,6 @@ private:
 
     Window& mWindow;
 
-    VulkanDevice mDevice;
 
     VkSwapchainKHR mSwapChain {VK_NULL_HANDLE};
     std::vector<VkFramebuffer> mSwapChainFramebuffers;
@@ -178,6 +178,10 @@ private:
         float mousePosX{};
         float mousePosY{};
     };
+
+    VkImage mColorImage {VK_NULL_HANDLE};
+    VkDeviceMemory mColorImageMemory {VK_NULL_HANDLE};
+    VkImageView mColorImageView {VK_NULL_HANDLE};
 
     VkDescriptorSetLayout mDescriptorSetLayout {VK_NULL_HANDLE};
     VkPipelineLayout mPipelineLayout {VK_NULL_HANDLE};
@@ -206,6 +210,8 @@ private:
     VkDeviceMemory mDepthImageMemory {VK_NULL_HANDLE};
     VkImageView mDepthImageView {VK_NULL_HANDLE};
 
+    VkSampleCountFlagBits mMSAASampleCount {mDevice.getMaxMsaaSampleCount()};
+
     void updateUniformBuffer(U32 currentFrame, float dt, float modelAngle);
 
     void recordCommands(VkCommandBuffer commandBuffer, 
@@ -233,6 +239,7 @@ private:
     void initVertexBuffer();
     void initIndexBuffer();
     void initDepthRescources();
+    void initColorResources();
 
     void cleanupSwapChain();
     void recreateSwapChain();
@@ -254,8 +261,8 @@ private:
     void loadModel();
 
     void createImage(U32 width, U32 height, U32 mipLevels, VkFormat format, 
-        VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, 
-        VkImage& image, VkDeviceMemory& imageMemory);
+        VkSampleCountFlagBits numSamples,VkImageTiling tiling, VkImageUsageFlags usage, 
+        VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 
     void copyBufferToImage(VkBuffer buffer, VkImage image, U32 width, U32 height);
 

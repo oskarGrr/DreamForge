@@ -23,6 +23,7 @@ public:
     auto getGraphicsQueue() const {return mGraphicsQueue;}
     auto getPresentQueue() const {return mPresentQueue;}
     auto getSurface() const {return mSurface;}
+    auto getMaxMsaaSampleCount() const {return mMaxMSAASampleCount;}
     auto getInstance() const {return mInstance;}
     auto const& getPhysicalDeviceProperties() const {return mDeviceProperties;}
 
@@ -59,6 +60,7 @@ private:
     void getSwapChainSupportInfoImpl(VkPhysicalDevice, SwapChainSupportDetails& outDetails) const;
     void createLogicalDevice(); //init mLogicalDevice from mPhysicalDevice
     QueueFamilyIndices getQueueFamilyIndicesImpl(VkPhysicalDevice) const;
+    VkSampleCountFlagBits getMaxUsableSampleCount() const;
 
     //If the resut holds a string there was an error or the physicalDevice is not suitable,
     //and the string has an explanation, ohterwise the physical device is suitable.
@@ -73,6 +75,7 @@ private:
     VkQueue mPresentQueue {VK_NULL_HANDLE};
     VkPhysicalDevice mPhysicalDevice {VK_NULL_HANDLE};
     std::vector<VkPhysicalDevice> mAllPhysicalDevices;
+    VkSampleCountFlagBits mMaxMSAASampleCount {VK_SAMPLE_COUNT_1_BIT};
 
     //the validation layers and device extensions that need to be supported.
     //the device extensions will be checked for validity in isPhysicalDeviceSuitable().
