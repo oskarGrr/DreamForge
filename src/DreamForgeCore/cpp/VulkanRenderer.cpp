@@ -1191,7 +1191,7 @@ void VulkanRenderer::initFramebuffers()
 {
     mSwapChainFramebuffers.resize(mSwapChainImageViews.size());
 
-    for(size_t i = 0; i < mSwapChainImageViews.size(); i++)
+    for(size_t i = 0; i < mSwapChainImageViews.size(); ++i)
     {
         std::array const attachments 
         {

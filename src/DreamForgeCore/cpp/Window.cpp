@@ -56,8 +56,9 @@ void Window::maximize()
 
 void Window::displayTitleFPS(double dt)
 {
-    static double avgDt {};
-    avgDt = avgDt * .99 + dt * 0.01;
+    static double avgDt {dt};
+    float const alpha {0.0009f};
+    avgDt = avgDt * (1-alpha) + dt * alpha;
     glfwSetWindowTitle(mWindow, std::format("FPS: {}", (U32)(1/avgDt)).c_str());
 }
 

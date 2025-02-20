@@ -45,6 +45,7 @@ static debugWindowResult debugWindow()
     float const tau {6.283185};
 
     ImGui::SliderFloat("model angle", &angle, 0.0f, tau * 2);
+    ImGui::ShowDemoWindow();
 
     return {angle};
 }
