@@ -98,7 +98,7 @@ VulkanRenderer::~VulkanRenderer()
 
 void VulkanRenderer::updateComputeUniformBuffer(U32 currentFrame, float dt)
 {
-    *static_cast<ComputeUniformBuffer*>(mComputeUniformBuffersMapped[currentFrame]) = {dt * 50};
+    *static_cast<ComputeUniformBuffer*>(mComputeUniformBuffersMapped[currentFrame]) = {dt * 400};
 }
 
 void VulkanRenderer::updateUniformBuffer(U32 currentFrame, float dt, float modelAngle)
