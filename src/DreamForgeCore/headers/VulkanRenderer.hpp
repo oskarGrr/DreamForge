@@ -14,6 +14,44 @@
 
 class Window;
 
+struct Particle
+{
+    glm::vec2 position;
+    glm::vec2 velocity;
+    glm::vec4 color;
+
+    static constexpr size_t PARTICLE_COUNT {256 * 100};
+
+    static VkVertexInputBindingDescription getBindingDescription()
+    {
+        return
+        {
+            .binding = 0,
+            .stride = sizeof Particle,
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        };
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+    {
+        return
+        {{
+            {
+                .location = 0,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32_SFLOAT,
+                .offset = offsetof(Particle, position)
+            },
+            {
+                .location = 1,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .offset = offsetof(Particle, color)
+            }
+        }};
+    }
+};
+
 struct Vertex
 {
     glm::vec3 pos;
@@ -22,16 +60,14 @@ struct Vertex
 
     bool operator<=>(const Vertex&) const = default;
 
-    static auto getBindingDescription()
+    static VkVertexInputBindingDescription getBindingDescription()
     {
-        VkVertexInputBindingDescription bindingDescription
+        return
         {
             .binding = 0,
-            .stride = sizeof(Vertex),
+            .stride = sizeof Vertex,
             .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
         };
-
-        return bindingDescription;
     }
     
     static auto getAttributeDescriptions() 
@@ -103,62 +139,25 @@ private:
     std::vector<Vertex> mVertices;
     std::vector<U32> mIndices;
 
-    //std::vector<Vertex> mVertices 
-    //{   
-    //    // Front face
-    //    {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-    //    {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
-    //    {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 0.0f}},
-    //    {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 0.0f}},
-    //                                
-    //    {{-0.5f, -0.5f,  0.5f}, {}, {1.0f, 1.0f}},
-    //    {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 1.0f}},
-    //    {{0.5f,  0.5f,  0.5f},  {}, {0.0f, 0.0f}},
-    //    {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
-
-    //    {{-0.5f,  0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-    //    {{0.5f,   0.5f,  -0.5f},{}, {1.0f, 1.0f}},
-    //    {{0.5f,   0.5f,  0.5f}, {}, {1.0f, 0.0f}},
-    //    {{-0.5f,  0.5f,  0.5f}, {}, {0.0f, 0.0f}},
-
-    //    {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-    //    {{0.5f, -0.5f, -0.5f},  {}, {1.0f, 1.0f}},
-    //    {{0.5f, -0.5f,  0.5f},  {}, {1.0f, 0.0f}},
-    //    {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
-
-    //    {{-0.5f, -0.5f, -0.5f}, {}, {0.0f, 1.0f}},
-    //    {{-0.5f,  0.5f, -0.5f}, {}, {1.0f, 1.0f}},
-    //    {{-0.5f,  0.5f,  0.5f}, {}, {1.0f, 0.0f}},
-    //    {{-0.5f, -0.5f,  0.5f}, {}, {0.0f, 0.0f}},
-
-    //    {{0.5f, -0.5f, -0.5f},  {}, {0.0f, 1.0f}},
-    //    {{0.5f,  0.5f, -0.5f},  {}, {1.0f, 1.0f}},
-    //    {{0.5f,  0.5f,  0.5f},  {}, {1.0f, 0.0f}},
-    //    {{0.5f, -0.5f,  0.5f},  {}, {0.0f, 0.0f}},
-    //};
-
-    //std::vector<U32> mIndices
-    //{
-    //    0, 3, 2,  2, 1, 0,
-    //    4, 5, 6,  6, 7, 4,
-    //    8, 11, 10,  10, 9, 8,
-    //    12, 13, 14,  14, 15, 12,
-    //    16, 19, 18,  18, 17, 16,
-    //    20, 21, 22,  22, 23, 20
-    //};
+    struct ComputeUniformBuffer
+    {
+        float deltaTime;
+    };
 
     VkBuffer mVertexBuff {VK_NULL_HANDLE};
     VkBuffer mIndexBuff {VK_NULL_HANDLE};
     VkDeviceMemory mVertexBuffMemory {VK_NULL_HANDLE};
     VkDeviceMemory mIndexBuffMemory {VK_NULL_HANDLE};
 
-    std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> mUniformBuffers;
-    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> mUniformBuffersMemory;
-    std::array<void*, MAX_FRAMES_IN_FLIGHT> mUniformBuffersMapped;
-    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> mDescriptorSets;
+    std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> mComputeUniformBuffers {};
+    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> mComputeUniformBuffersMemory {};
+    std::array<void*, MAX_FRAMES_IN_FLIGHT> mComputeUniformBuffersMapped {};
+    std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> mUniformBuffers {};
+    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> mUniformBuffersMemory {};
+    std::array<void*, MAX_FRAMES_IN_FLIGHT> mUniformBuffersMapped {};
+    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> mDescriptorSets {};
 
     Window& mWindow;
-
 
     VkSwapchainKHR mSwapChain {VK_NULL_HANDLE};
     std::vector<VkFramebuffer> mSwapChainFramebuffers;
@@ -184,17 +183,24 @@ private:
     VkImageView mColorImageView {VK_NULL_HANDLE};
 
     VkDescriptorSetLayout mDescriptorSetLayout {VK_NULL_HANDLE};
+    VkDescriptorSetLayout mComputeDescriptorSetLayout {VK_NULL_HANDLE};
     VkPipelineLayout mPipelineLayout {VK_NULL_HANDLE};
+    VkPipelineLayout mComputePipelineLayout {VK_NULL_HANDLE};
     VkPipeline mGraphicsPipeline {VK_NULL_HANDLE};
+    VkPipeline mComputePipeline {VK_NULL_HANDLE};
     VkShaderModule mVertShaderModule {VK_NULL_HANDLE};
     VkShaderModule mFragShaderModule {VK_NULL_HANDLE};
+    VkShaderModule mComputeShaderModule {VK_NULL_HANDLE};
 
     VkCommandPool mCommandPool {VK_NULL_HANDLE};
-    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers;
+    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mComputeCommandBuffers {};
+    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers {};
 
-    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mImageAvailableSem;
-    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSem;
-    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence;
+    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> computeInFlightFences {};
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mComputeFinishedSemaphores {};
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mImageAvailableSemaphores {};
+    std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSemaphores {};
+    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence {};
 
     //call void initImguiRenderInfo() to initialize imgui rendering related things
     bool mImGuiRenderInfoInitialized {false};
@@ -210,11 +216,17 @@ private:
     VkDeviceMemory mDepthImageMemory {VK_NULL_HANDLE};
     VkImageView mDepthImageView {VK_NULL_HANDLE};
 
+    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> mComputeDescriptorSets {};
+    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> shaderStorageBuffersMemory {};
+    std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> mShaderStorageBuffers {};
+
     VkSampleCountFlagBits mMSAASampleCount {mDevice.getMaxMsaaSampleCount()};
 
     void updateUniformBuffer(U32 currentFrame, float dt, float modelAngle);
+    void updateComputeUniformBuffer(U32 currentFrame, float dt);
 
-    void recordCommands(VkCommandBuffer commandBuffer, 
+    void recordComputeCommands(VkCommandBuffer cmdBuff);
+    void recordCommands(VkCommandBuffer commandBuffer,
         U32 imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
 
     inline static std::string_view const sModelFpath = "resources/models/viking_room.obj";
@@ -226,16 +238,21 @@ private:
     void initRenderPass();
     void initCommandPool();
     void initCommandBuffers();
+    void initComputeCommandBuffers();
     void initFramebuffers();
     void initSwapChain();
     void initSynchronizationObjects();
+    void initComputeDescriptorSetLayout();
     void initDescriptorSetLayout();
+    void initComputeUniformBuffers();
+    void initShaderStorageBuffers();
     void initUniformBuffers();
     void initDescriptorSets();
     void initDescriptorPool();
     void initTextureImage();
     void initTextureImageView();
     void initTextureSampler();
+    void initComputeDescriptorSets();
     void initVertexBuffer();
     void initIndexBuffer();
     void initDepthRescources();

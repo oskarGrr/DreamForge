@@ -16,11 +16,6 @@ layout( push_constant ) uniform constants
 	float mousePosY;
 }Input;
 
-vec2 iMouse = vec2(Input.mousePosX, Input.mousePosY);
-vec2 iResolution = vec2(Input.DF_width, Input.DF_height);
-float iTime = Input.DF_IncTime;
-vec2 fragCoord = gl_FragCoord.xy;
-
 void main()
 {
 	outColor = texture(texSampler, fragTexCoord);

@@ -22,6 +22,7 @@ public:
     auto getPhysicalDevice() const {return mPhysicalDevice;}
     auto getGraphicsQueue() const {return mGraphicsQueue;}
     auto getPresentQueue() const {return mPresentQueue;}
+    auto getComputeQueue() const {return mComputeQueue;}
     auto getSurface() const {return mSurface;}
     auto getMaxMsaaSampleCount() const {return mMaxMSAASampleCount;}
     auto getInstance() const {return mInstance;}
@@ -29,7 +30,8 @@ public:
 
     struct QueueFamilyIndices
     {
-        std::optional<U32> graphicsFamilyIndex {std::nullopt}, presentFamilyIndex {std::nullopt};
+        std::optional<U32> graphicsFamIdx{std::nullopt}, 
+            presentFamIdx{std::nullopt}, graphicsAndComputeFamIdx{std::nullopt};
     };
 
     QueueFamilyIndices getQueueFamilyIndices() const
@@ -73,6 +75,7 @@ private:
     VkDevice mLogicalDevice {VK_NULL_HANDLE};
     VkQueue mGraphicsQueue {VK_NULL_HANDLE};
     VkQueue mPresentQueue {VK_NULL_HANDLE};
+    VkQueue mComputeQueue {VK_NULL_HANDLE};
     VkPhysicalDevice mPhysicalDevice {VK_NULL_HANDLE};
     std::vector<VkPhysicalDevice> mAllPhysicalDevices;
     VkSampleCountFlagBits mMaxMSAASampleCount {VK_SAMPLE_COUNT_1_BIT};

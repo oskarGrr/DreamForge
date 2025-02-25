@@ -97,7 +97,7 @@ VkSampleCountFlagBits VulkanDevice::getMaxUsableSampleCount() const
 //return the indices to the graphics and present queue families for mPhysicalDevice
 VulkanDevice::QueueFamilyIndices VulkanDevice::getQueueFamilyIndicesImpl(VkPhysicalDevice physicalDeviceHandle) const
 {
-    QueueFamilyIndices retval {.graphicsFamilyIndex = std::nullopt, .presentFamilyIndex = std::nullopt};
+    QueueFamilyIndices retval {.graphicsFamIdx = std::nullopt, .presentFamIdx = std::nullopt};
 
     //first query for how many queue family properties there are for this physical device
     U32 numQueueFamProperties {};
@@ -106,16 +106,22 @@ VulkanDevice::QueueFamilyIndices VulkanDevice::getQueueFamilyIndicesImpl(VkPhysi
     std::vector<VkQueueFamilyProperties> queueFamProperties {numQueueFamProperties};
     vkGetPhysicalDeviceQueueFamilyProperties(physicalDeviceHandle, &numQueueFamProperties, queueFamProperties.data());
 
-    for(U32 i {0}; i < numQueueFamProperties; ++i)
+    for(int i {0}; i < numQueueFamProperties; ++i)
     {
+        if((queueFamProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) 
+            && (queueFamProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT))
+        {
+            retval.graphicsAndComputeFamIdx = i;
+        }
+
         if(queueFamProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-            retval.graphicsFamilyIndex = i;
+            retval.graphicsFamIdx = i;
 
         VkBool32 queueHasPresentationSupport {VK_FALSE};
         vkGetPhysicalDeviceSurfaceSupportKHR(physicalDeviceHandle, i, mSurface, &queueHasPresentationSupport);
 
         if(queueHasPresentationSupport)
-            retval.presentFamilyIndex = i;
+            retval.presentFamIdx = i;
     }
 
     return retval;
@@ -196,7 +202,7 @@ bool VulkanDevice::isPhysicalDeviceSuitable(VkPhysicalDevice deviceHandle)
     //check if the required queue families are supported
     {
         QueueFamilyIndices const queueFamIndices {getQueueFamilyIndicesImpl(deviceHandle)};
-        if( ! queueFamIndices.graphicsFamilyIndex.has_value() || ! queueFamIndices.presentFamilyIndex.has_value() )
+        if( ! queueFamIndices.graphicsFamIdx.has_value() || ! queueFamIndices.presentFamIdx.has_value() )
             return false;
     }
 
@@ -329,8 +335,8 @@ void VulkanDevice::createLogicalDevice()
     
     std::unordered_set<U32> const uniqueQueueFamIndecies
     {
-        *queueFamIndices.graphicsFamilyIndex, 
-        *queueFamIndices.presentFamilyIndex
+        *queueFamIndices.graphicsFamIdx, 
+        *queueFamIndices.presentFamIdx
     };
 
     std::vector<VkDeviceQueueCreateInfo> queueCreationInformation;
@@ -367,8 +373,9 @@ void VulkanDevice::createLogicalDevice()
     }
 
     //get the handles to the 2 queues
-    vkGetDeviceQueue(mLogicalDevice, *queueFamIndices.graphicsFamilyIndex, 0, &mGraphicsQueue);
-    vkGetDeviceQueue(mLogicalDevice, *queueFamIndices.presentFamilyIndex, 0, &mPresentQueue);
+    vkGetDeviceQueue(mLogicalDevice, *queueFamIndices.graphicsFamIdx, 0, &mGraphicsQueue);
+    vkGetDeviceQueue(mLogicalDevice, *queueFamIndices.presentFamIdx, 0, &mPresentQueue);
+    vkGetDeviceQueue(mLogicalDevice, *queueFamIndices.graphicsAndComputeFamIdx, 0, &mComputeQueue);
 }
 
 void VulkanDevice::createInstance(std::vector<const char*>& extensions)
