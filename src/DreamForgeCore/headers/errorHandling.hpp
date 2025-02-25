@@ -1,5 +1,5 @@
 #pragma once
-#include <expected>//C++23 and beyond
+#include <expected>
 #include <optional>
 #include <cstdint>
 #include <string_view>

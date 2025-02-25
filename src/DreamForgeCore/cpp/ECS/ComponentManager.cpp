@@ -9,12 +9,12 @@ namespace DF
 
 ComponentManager::ComponentManager()
 {
-    m_componentArrays[GetIDFromType<Transform>] = ArrayImpl<Transform>{};
+    mComponentArrays[GetIDFromType<Transform>] = ArrayImpl<Transform>{};
 }
 
 template<class ComponentT>
 ComponentManager::ArrayImpl<ComponentT>::ArrayImpl(ArrayImpl&& oldObj) noexcept
-    : m_size{oldObj.m_size}, m_array{std::move(oldObj.m_array)}
+    : mSize{oldObj.mSize}, m_array{std::move(oldObj.m_array)}
 {
     oldObj.m_array.reset();
 }
@@ -40,10 +40,10 @@ void ComponentManager::ArrayImpl<ComponentT>::emplace(
     //Since the destructors are trivial for component types, I don't think I need to
     //destruct them before calling placement new (they dont do anything...)
     //I am going to do it anyway just in case, to appease the abstract machine gods.
-    auto pos = m_array.get() + m_size;
+    auto pos = m_array.get() + mSize;
     m_array[pos].~ComponentT();
     ::new(pos) ComponentT(std::forward<Args>(ctorArgs)...);
-    ++m_size;
+    ++mSize;
 }
 
 //None of my component types can benefit from a move,
@@ -55,8 +55,8 @@ void ComponentManager::ArrayImpl<ComponentT>::insert(ComponentT&& toInsert,
 #ifdef DF_DEBUG
     if(!insertDataCheck()) {return;}
 #endif
-    m_array[m_size] = std::move(toInsert);
-    ++m_size;
+    m_array[mSize] = std::move(toInsert);
+    ++mSize;
 }
 
 template<class ComponentT>
@@ -66,22 +66,22 @@ void ComponentManager::ArrayImpl<ComponentT>::insert(ComponentT const& toInsert,
 #ifdef DF_DEBUG
     if(!insertDataCheck()) {return;}
 #endif
-    m_array[m_size] = toInsert;
-    updateMapsOnInsert(entity, m_size);
-    ++m_size;
+    m_array[mSize] = toInsert;
+    updateMapsOnInsert(entity, mSize);
+    ++mSize;
 }
 
 //Helper method to reduce code repetition. Called in debug builds only.
 template<class ComponentT>
 bool ComponentManager::ArrayImpl<ComponentT>::insertDataCheck(Entity const& entity)
 {
-    if(m_entityToIdxMap.find(&entity) != m_entityToIdxMap.end())
+    if(mEntityToIdxMap.find(&entity) != mEntityToIdxMap.end())
     {
         Logger::get().stdoutError("attempted to add a component"
             "to an entity more than once");
         return false;
     }
-    if(m_size >= getCapacity())
+    if(mSize >= getCapacity())
     {
         Logger::get().stdoutError("attempted to insert into a full component array");
         return false;
@@ -96,22 +96,22 @@ template<class ComponentT>
 void ComponentManager::ArrayImpl<ComponentT>::updateMapsOnInsert(
     Entity const& entity, Index_t idxOfNewComponent)
 {
-    m_entityToIdxMap.emplace(&entity, idxOfNewComponent);
-    m_idxToEntityMap.emplace(idxOfNewComponent, &entity);
+    mEntityToIdxMap.emplace(&entity, idxOfNewComponent);
+    mIdxToEntityMap.emplace(idxOfNewComponent, &entity);
 }
 
 template<class ComponentT>
 void ComponentManager::ArrayImpl<ComponentT>::erase(Entity const& entity)
 {
 #ifdef DF_DEBUG
-    if(m_size == 0)
+    if(mSize == 0)
     {
         Logger::get().stdoutError("trying to call " 
             "ComponentManager::ArrayImpl::eraseAt() from an empty component array");
         return;
     }
 
-    if(m_entityToIdxMap.find(&entity) == m_entityToIdxMap.end())
+    if(mEntityToIdxMap.find(&entity) == mEntityToIdxMap.end())
     {
         Logger::get().stdoutError("invalid entity supplied to "
             "ComponentManager::ArrayImpl::erase()");
@@ -121,32 +121,32 @@ void ComponentManager::ArrayImpl<ComponentT>::erase(Entity const& entity)
     //The ordering of the components doesnt matter, so I will 
     //just copy the last element to fill the component we are erasing.
     //None of the components benifit from a move, so just copy.
-    auto lastIdx = m_size - 1;
-    auto idxToRemove = m_entityToIdxMap[&entity];
+    auto lastIdx = mSize - 1;
+    auto idxToRemove = mEntityToIdxMap[&entity];
     m_array[idxToRemove] = m_array[lastIdx];
 
-    auto endComponentEntity = m_idxToEntityMap[lastIdx];
-    m_entityToIdxMap[endComponentEntity] = idxToRemove;
-    m_idxToEntityMap[idxToRemove] = endComponentEntity;
+    auto endComponentEntity = mIdxToEntityMap[lastIdx];
+    mEntityToIdxMap[endComponentEntity] = idxToRemove;
+    mIdxToEntityMap[idxToRemove] = endComponentEntity;
 
-    m_entityToIdxMap.erase(&entity);
-    m_idxToEntityMap.erase(lastIdx);
+    mEntityToIdxMap.erase(&entity);
+    mIdxToEntityMap.erase(lastIdx);
 
-    --m_size;
+    --mSize;
 }
 
 template <typename ComponentT> [[nodiscard]]
 NonOwningPtr<Entity> ComponentManager::ArrayImpl<ComponentT>::getComponent(Entity const& entity) const
 {
 #ifdef DF_DEBUG
-    if(m_entityToIdxMap.find(&entity) == m_entityToIdxMap.end())
+    if(mEntityToIdxMap.find(&entity) == mEntityToIdxMap.end())
     {
         Logger::get().stdoutError("requesting a component from ComponentManager::ArrayImpl"
             "<ComponentT>::getComponent() with an entity that doesnt have this component");
         return std::nullopt;
     }
 #endif
-    return std::cref(m_array.get() + m_entityToIdxMap[&entity]);
+    return std::cref(m_array.get() + mEntityToIdxMap[&entity]);
 }
 
 }

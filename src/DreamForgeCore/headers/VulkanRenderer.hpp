@@ -196,7 +196,7 @@ private:
     std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mComputeCommandBuffers {};
     std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers {};
 
-    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> computeInFlightFences {};
+    std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mComputeInFlightFences {};
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mComputeFinishedSemaphores {};
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mImageAvailableSemaphores {};
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSemaphores {};
@@ -217,7 +217,7 @@ private:
     VkImageView mDepthImageView {VK_NULL_HANDLE};
 
     std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> mComputeDescriptorSets {};
-    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> shaderStorageBuffersMemory {};
+    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> mShaderStorageBuffersMemory {};
     std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> mShaderStorageBuffers {};
 
     VkSampleCountFlagBits mMSAASampleCount {mDevice.getMaxMsaaSampleCount()};

@@ -84,25 +84,25 @@ void ScriptingEngine::initMono()
     mono_set_assemblies_path("/lib");
 #endif
 
-    m_rootDomainPtr = mono_jit_init("j^2JitDomain");
-    if(!m_rootDomainPtr)
+    mRootDomainPtr = mono_jit_init("j^2JitDomain");
+    if(!mRootDomainPtr)
     {
         Logger::get().stdoutError("error durring mono_jit_init()");
     }
     
     char appDomainName[]{"j^2appDomain"};
-    m_appDomainPtr = mono_domain_create_appdomain(appDomainName, nullptr);
-    if(!m_appDomainPtr)
+    mAppDomainPtr = mono_domain_create_appdomain(appDomainName, nullptr);
+    if(!mAppDomainPtr)
     {
         Logger::get().stdoutError("error durring mono_domain_create_appdomain()");
     }
 
-    mono_domain_set(m_appDomainPtr, true);
+    mono_domain_set(mAppDomainPtr, true);
 }
 
 void ScriptingEngine::shutdownMono()
 {
-    mono_jit_cleanup(m_rootDomainPtr);
+    mono_jit_cleanup(mRootDomainPtr);
 }
 
 void ScriptingEngine::addInternalCall(const void* method, std::string_view funcName)

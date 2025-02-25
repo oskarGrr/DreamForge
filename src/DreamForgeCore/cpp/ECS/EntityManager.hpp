@@ -38,17 +38,17 @@ public:
     EntityManager& operator=(EntityManager const&)=delete;
     EntityManager& operator=(EntityManager&&)=delete;
 
-    inline static constexpr auto getMaxEntityCount() {return s_maxEntities;}
-    inline auto getCurrentEntityCount() const {return m_currentEntityCount;}
-    inline auto haveReachedMaxEntities() const {return m_currentEntityCount >= getMaxEntityCount();}
+    inline static constexpr auto getMaxEntityCount() {return sMaxEntities;}
+    inline auto getCurrentEntityCount() const {return mCurrentEntityCount;}
+    inline auto haveReachedMaxEntities() const {return mCurrentEntityCount >= getMaxEntityCount();}
     [[nodiscard("dont forget your entity")]] Expect<Entity> makeEntity();
 
     void removeEntity();
 
 private:
-    inline constexpr static size_t s_maxEntities{1000};
-    std::array<Entity, s_maxEntities> m_entities{};
-    size_t m_currentEntityCount{0};
+    inline constexpr static size_t sMaxEntities{1000};
+    std::array<Entity, sMaxEntities> mEntities{};
+    size_t mCurrentEntityCount{0};
 };
 
 }

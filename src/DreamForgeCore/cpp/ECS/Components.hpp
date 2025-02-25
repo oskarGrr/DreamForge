@@ -5,9 +5,9 @@
 
 struct Transform
 {
-    glm::vec2 m_position{};
-    glm::vec2 m_scale{};
-    F64 m_rotation{};
+    glm::vec2 position{};
+    glm::vec2 scale{};
+    F64 rotation{};
 };
 
 //Below are meta functions for a compile time type to integer map.

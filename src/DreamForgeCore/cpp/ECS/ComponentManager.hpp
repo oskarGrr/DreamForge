@@ -26,13 +26,13 @@ public:
     template <typename ...ComponentTs>
     void insertComponents(Entity const& entity)
     {
-        (m_componentArrays[GetIDFromType<ComponentTs>].emplace(entity), ...);
+        (mComponentArrays[GetIDFromType<ComponentTs>].emplace(entity), ...);
     }
 
     template <typename ...ComponentTs>
     void removeComponents(Entity const& entity)
     {
-        (m_componentArrays[GetIDFromType<ComponentTs>].erase(entity), ...);
+        (mComponentArrays[GetIDFromType<ComponentTs>].erase(entity), ...);
     }
     
 private:
@@ -50,7 +50,7 @@ private:
         ArrayImpl(ArrayImpl&&)noexcept;
         ArrayImpl& operator=(ArrayImpl&&)noexcept;
 
-        inline constexpr auto getSize() const {return m_size;}
+        inline constexpr auto getSize() const {return mSize;}
         inline constexpr auto getCapacity() const {return m_array.size();}
         [[nodiscard]] NonOwningPtr<Entity> getComponent(Entity const& entity) const;
         void insert(ComponentT const&, Entity const&);
@@ -69,13 +69,13 @@ private:
         std::unique_ptr<ComponentT[]> m_array{nullptr};
 
         //How many components are currently being stored
-        size_t m_size{0};
+        size_t mSize{0};
 
-        size_t m_capacity{EntityManager::getMaxEntityCount()};
+        size_t mCapacity{EntityManager::getMaxEntityCount()};
 
         //TODO change from const Entity* to reference_wrapper
-        std::unordered_map<const Entity*, Index_t> m_entityToIdxMap;
-        std::unordered_map<Index_t, const Entity*> m_idxToEntityMap;
+        std::unordered_map<const Entity*, Index_t> mEntityToIdxMap;
+        std::unordered_map<Index_t, const Entity*> mIdxToEntityMap;
 
         //Helper method to reduce code repetition. Called in debug builds only.
         bool insertDataCheck(Entity const&);
@@ -92,7 +92,7 @@ private:
     >;
 
     //The array of component arrays.
-    std::array<ComponentArray_t, NUM_COMPONENT_TYPES> m_componentArrays;
+    std::array<ComponentArray_t, NUM_COMPONENT_TYPES> mComponentArrays;
 };
 
 }

@@ -36,10 +36,10 @@ private:
     Logger& operator=(Logger&&)=delete;
 
     //The logger that is used from within the engine DLL.
-    std::shared_ptr<spdlog::logger> m_internalLogger{nullptr};
+    std::shared_ptr<spdlog::logger> mInternalLogger{nullptr};
     
     //The logger that is used by the application linking with the DLL.
-    std::shared_ptr<spdlog::logger> m_gameAppLogger{nullptr};
+    std::shared_ptr<spdlog::logger> mGameAppLogger{nullptr};
     
     spdlog::filename_t m_logFilePath { std::string{"./DFLog.txt"} };
 
@@ -51,49 +51,49 @@ public:
 //fmtStdoutxxx() logs a printf style format string.
 #ifdef DF_DLL_INTERNAL
     void stdoutInfo(auto const&... messages){
-        (m_internalLogger->info(messages), ...);
+        (mInternalLogger->info(messages), ...);
     }
     void stdoutWarn(auto const&... messages){
-        (m_internalLogger->warn(messages), ...);
+        (mInternalLogger->warn(messages), ...);
     }
     void stdoutError(auto const&... messages){
-        (m_internalLogger->error(messages), ...);
+        (mInternalLogger->error(messages), ...);
     }
 
     template <class ...Args> void 
     fmtStdoutInfo(spdlog::format_string_t<Args...> fmtStr, Args&&... toFormat){
-        m_internalLogger->info(fmtStr, std::forward<Args>(toFormat)...);
+        mInternalLogger->info(fmtStr, std::forward<Args>(toFormat)...);
     }
     template <class ...Args> 
     void fmtStdoutWarn(spdlog::format_string_t<Args...> fmtStr, Args&&... toFormat){
-        m_internalLogger->warn(fmtStr, std::forward<Args>(toFormat)...);
+        mInternalLogger->warn(fmtStr, std::forward<Args>(toFormat)...);
     }
     template <class ...Args> 
     void fmtStdoutError(spdlog::format_string_t<Args...> fmtStr, Args&&... toFormat){
-        m_internalLogger->error(fmtStr, std::forward<Args>(toFormat)...);
+        mInternalLogger->error(fmtStr, std::forward<Args>(toFormat)...);
     }
 #else
     void stdoutInfo(auto const&... messages){
-        (m_gameAppLogger->info(messages), ...);
+        (mGameAppLogger->info(messages), ...);
     }
     void stdoutWarn(auto const&... messages){
-        (m_gameAppLogger->warn(messages), ...);
+        (mGameAppLogger->warn(messages), ...);
     }
     void stdoutError(auto const&... messages){
-        (m_gameAppLogger->error(messages), ...);
+        (mGameAppLogger->error(messages), ...);
     }
 
     template <class ...Args> 
     void fmtStdoutInfo(spdlog::format_string_t<Args...> fmtStr, Args&&... toFormat){
-        m_gameAppLogger->info(fmtStr, std::forward<Args>(toFormat)...);
+        mGameAppLogger->info(fmtStr, std::forward<Args>(toFormat)...);
     }
     template <class ...Args> 
     void fmtStdoutWarn(spdlog::format_string_t<Args...> fmtStr, Args&&... toFormat){
-        m_gameAppLogger->warn(fmtStr, std::forward<Args>(toFormat)...);
+        mGameAppLogger->warn(fmtStr, std::forward<Args>(toFormat)...);
     }
     template <class ...Args> 
     void fmtStdoutError(spdlog::format_string_t<Args...> fmtStr, Args&&... toFormat){
-        m_gameAppLogger->error(fmtStr, std::forward<Args>(toFormat)...);
+        mGameAppLogger->error(fmtStr, std::forward<Args>(toFormat)...);
     }
 #endif
 };

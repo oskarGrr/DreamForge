@@ -25,9 +25,9 @@ private:
     static std::unique_ptr<char[]> readCILAssemblyBytes(
         const std::string_view assemblyPath, size_t& outBufferSize);
 
-    MonoDomain*   m_rootDomainPtr{nullptr};
-    MonoDomain*   m_appDomainPtr{nullptr};
-    MonoAssembly* m_csharpEngineAPIAssembly{nullptr};
+    MonoDomain*   mRootDomainPtr{nullptr};
+    MonoDomain*   mAppDomainPtr{nullptr};
+    MonoAssembly* mCsharpEngineAPIAssembly{nullptr};
 };
 
 }

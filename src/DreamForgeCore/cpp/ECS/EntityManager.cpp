@@ -11,16 +11,16 @@ Expect<Entity> EntityManager::makeEntity()
     if(haveReachedMaxEntities())
         return std::unexpected(Error::Code::MAX_ENTITIES_REACHED);
 
-    m_entities[m_currentEntityCount].setID(m_currentEntityCount++);
+    mEntities[mCurrentEntityCount].setID(mCurrentEntityCount++);
 
     //If we have reached maximum entities after making this one.
     if(haveReachedMaxEntities())
     {
         Logger::get().fmtStdoutWarn("max entites reached {}/{}",
-            m_currentEntityCount, m_currentEntityCount);
+            mCurrentEntityCount, mCurrentEntityCount);
     }
 
-    return m_entities[m_currentEntityCount];
+    return mEntities[mCurrentEntityCount];
 }
 
 void EntityManager::removeEntity()

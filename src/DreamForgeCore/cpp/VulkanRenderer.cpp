@@ -77,6 +77,9 @@ VulkanRenderer::~VulkanRenderer()
     {
         vkDestroyBuffer(device, mUniformBuffers[i], nullptr);
         vkFreeMemory(device, mUniformBuffersMemory[i], nullptr);
+
+        vkDestroyBuffer(device, mShaderStorageBuffers[i], nullptr);
+        vkFreeMemory(device, mShaderStorageBuffersMemory[i], nullptr);
     }
 
     vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
@@ -232,9 +235,9 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos, float m
 
     {//submit to the compute queue
 
-        vkWaitForFences(device, 1, &computeInFlightFences[mCurrentFrame], VK_TRUE, UINT64_MAX);
+        vkWaitForFences(device, 1, &mComputeInFlightFences[mCurrentFrame], VK_TRUE, UINT64_MAX);
         updateComputeUniformBuffer(mCurrentFrame, deltaTime);
-        vkResetFences(device, 1, &computeInFlightFences[mCurrentFrame]);
+        vkResetFences(device, 1, &mComputeInFlightFences[mCurrentFrame]);
         vkResetCommandBuffer(mComputeCommandBuffers[mCurrentFrame], 0);
         recordComputeCommands(mComputeCommandBuffers[mCurrentFrame]);
 
@@ -248,7 +251,7 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos, float m
         };
 
         if(auto res{vkQueueSubmit(mDevice.getComputeQueue(), 1, &submitInfo,
-            computeInFlightFences[mCurrentFrame])}; res != VK_SUCCESS)
+            mComputeInFlightFences[mCurrentFrame])}; res != VK_SUCCESS)
         {
             throw DFException{"vkQueueSubmit failed", res};
         };
@@ -1109,7 +1112,7 @@ void VulkanRenderer::initSynchronizationObjects()
             throw SystemInitException{"vkCreateSemaphore failed", res};
         }
 
-        if(auto res{vkCreateFence(device, &fenceInfo, nullptr, &computeInFlightFences[i])};
+        if(auto res{vkCreateFence(device, &fenceInfo, nullptr, &mComputeInFlightFences[i])};
             res != VK_SUCCESS)
         {
             throw SystemInitException{"vkCreateFence failed", res};
@@ -1933,7 +1936,7 @@ void VulkanRenderer::initShaderStorageBuffers()
         createBuffer(buffSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | 
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mShaderStorageBuffers[i], 
-            shaderStorageBuffersMemory[i]);
+            mShaderStorageBuffersMemory[i]);
 
         //copy from the staging buffer to the shader storage buffer
         copyBuffer(stagingBuff, mShaderStorageBuffers[i], buffSize);
