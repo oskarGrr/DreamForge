@@ -73,10 +73,13 @@ VulkanRenderer::~VulkanRenderer()
     vkFreeMemory(device, mIndexBuffMemory, nullptr);
     vkDestroyRenderPass(device, mRenderPass, nullptr);
 
-    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         vkDestroyBuffer(device, mUniformBuffers[i], nullptr);
         vkFreeMemory(device, mUniformBuffersMemory[i], nullptr);
+
+        vkDestroyBuffer(device, mComputeUniformBuffers[i], nullptr);
+        vkFreeMemory(device, mComputeUniformBuffersMemory[i], nullptr);
 
         vkDestroyBuffer(device, mShaderStorageBuffers[i], nullptr);
         vkFreeMemory(device, mShaderStorageBuffersMemory[i], nullptr);
@@ -85,17 +88,23 @@ VulkanRenderer::~VulkanRenderer()
     vkDestroyDescriptorPool(device, mDescriptorPool, nullptr);
     vkDestroyDescriptorPool(device, mImguiInitInfo.DescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device, mDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, mComputeDescriptorSetLayout, nullptr);
     vkDestroyShaderModule(device, mFragShaderModule, nullptr);
     vkDestroyShaderModule(device, mVertShaderModule, nullptr);
+    vkDestroyShaderModule(device, mComputeShaderModule, nullptr);
     vkDestroyCommandPool(device, mCommandPool, nullptr);
     vkDestroyPipelineLayout(device, mPipelineLayout, nullptr);
+    vkDestroyPipelineLayout(device, mComputePipelineLayout, nullptr);
+    vkDestroyPipeline(device, mComputePipeline, nullptr);
     vkDestroyPipeline(device, mGraphicsPipeline, nullptr);
 
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
-        vkDestroySemaphore(mDevice.getLogicalDevice(), mImageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(mDevice.getLogicalDevice(), mRenderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(mDevice.getLogicalDevice(), mInFlightFence[i], nullptr);
+        vkDestroySemaphore(device, mComputeFinishedSemaphores[i], nullptr);
+        vkDestroySemaphore(device, mImageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(device, mRenderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(device, mInFlightFence[i], nullptr);
+        vkDestroyFence(device, mComputeInFlightFences[i], nullptr);
     }
 }
 
@@ -1941,6 +1950,9 @@ void VulkanRenderer::initShaderStorageBuffers()
         //copy from the staging buffer to the shader storage buffer
         copyBuffer(stagingBuff, mShaderStorageBuffers[i], buffSize);
     }
+
+    vkDestroyBuffer(device, stagingBuff, nullptr);
+    vkFreeMemory(device, stagingBuffMemory, nullptr);
 }
 
 void VulkanRenderer::initPipelineAndLayout()

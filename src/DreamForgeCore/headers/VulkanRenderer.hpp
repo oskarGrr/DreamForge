@@ -196,6 +196,7 @@ private:
     std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mComputeCommandBuffers {};
     std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers {};
 
+    //synchronization objects
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mComputeInFlightFences {};
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mComputeFinishedSemaphores {};
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mImageAvailableSemaphores {};
