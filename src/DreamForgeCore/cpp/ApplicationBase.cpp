@@ -87,7 +87,7 @@ try : mWindow{}, mIsAppRunning{true}
 {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
 
-    mRenderer.initImguiRenderInfo();
+    mRenderer.initImguiBackend();
 
     ScriptingEngine scriptingEngine;
     ScriptingEngine::printCILTypes(scriptingEngine.LoadCILAssembly(

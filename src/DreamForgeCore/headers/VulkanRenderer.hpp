@@ -116,7 +116,7 @@ public:
     VulkanRenderer(Window& wnd);
     ~VulkanRenderer();
 
-    void initImguiRenderInfo();
+    void initImguiBackend();
 
     void update(F64 deltaTime, glm::vec<2, double> mousePos, float modelAngle);
 
@@ -161,6 +161,7 @@ private:
 
     VkSwapchainKHR mSwapChain {VK_NULL_HANDLE};
     std::vector<VkFramebuffer> mSwapChainFramebuffers;
+    std::vector<VkFramebuffer> mImguiFrameBuffers;
     std::vector<VkImageView> mSwapChainImageViews;
     std::vector<VkImage> mSwapChainImages;
     VkFormat mSwapChainImageFormat{};
@@ -193,8 +194,8 @@ private:
     VkShaderModule mComputeShaderModule {VK_NULL_HANDLE};
 
     VkCommandPool mCommandPool {VK_NULL_HANDLE};
-    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mComputeCommandBuffers {};
-    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffers {};
+    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mComputeCommandBuffs {};
+    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mCommandBuffs {};
 
     //synchronization objects
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mComputeInFlightFences {};
@@ -203,9 +204,12 @@ private:
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> mRenderFinishedSemaphores {};
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> mInFlightFence {};
 
-    //call void initImguiRenderInfo() to initialize imgui rendering related things
+    //call void initImguiBackend() to initialize imgui rendering related things
     bool mImGuiRenderInfoInitialized {false};
-    ImGui_ImplVulkan_InitInfo mImguiInitInfo{};
+    ImGui_ImplVulkan_InitInfo mImguiInitInfo {};
+    VkRenderPass mImguiRenderPass {VK_NULL_HANDLE};
+    VkDescriptorPool mImguiDescriptorPool {VK_NULL_HANDLE};
+    std::array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> mImguiCommandBuffs {};
 
     U32 mMipMapLevels {1};
     VkImage mTextureImage {VK_NULL_HANDLE};
@@ -227,7 +231,7 @@ private:
     void updateComputeUniformBuffer(U32 currentFrame, float dt);
 
     void recordComputeCommands(VkCommandBuffer cmdBuff);
-    void recordCommands(VkCommandBuffer commandBuffer,
+    void recordCommands(VkCommandBuffer commandBuffer, VkCommandBuffer imguiCommandBuffer,
         U32 imageIndex, F32 deltaTime, glm::vec<2, double> mousePos);
 
     inline static std::string_view const sModelFpath = "resources/models/viking_room.obj";
@@ -239,6 +243,7 @@ private:
     void initRenderPass();
     void initCommandPool();
     void initCommandBuffers();
+    void initImguiCommandBuffers();
     void initComputeCommandBuffers();
     void initFramebuffers();
     void initSwapChain();
