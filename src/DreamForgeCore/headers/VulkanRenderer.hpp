@@ -267,6 +267,9 @@ private:
     void cleanupSwapChain();
     void recreateSwapChain();
 
+    void initImguiRenderPass();
+    void initImguiFrameBuffers();
+
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, U32 mipLevels);
 
     VkFormat findSupportedFormat(std::span<const VkFormat> candidates,

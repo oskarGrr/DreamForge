@@ -233,22 +233,16 @@ void VulkanRenderer::recordCommands(VkCommandBuffer cmdBuffer, VkCommandBuffer i
 
     {//record imgui commands in a different render pass
 
-        //std::array<VkClearValue, 2> clearColors {};
-        //clearColors[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
-        //clearColors[1].depthStencil = {1.0f, 0};
+        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        vkBeginCommandBuffer(imguiCommandBuffer, &beginInfo);
 
-        VkRenderPassBeginInfo renderPassBeginInfo
+        VkRenderPassBeginInfo const renderPassBeginInfo
         {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = mImguiRenderPass,
             .framebuffer = mImguiFrameBuffers[imageIndex],
             .renderArea = { .extent = mSwapChainExtent },
-            //.clearValueCount = (U32)clearColors.size(),
-            //.pClearValues = clearColors.data(),
         };
-
-        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-        vkBeginCommandBuffer(imguiCommandBuffer, &beginInfo);
 
         vkCmdBeginRenderPass(imguiCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
         ImDrawData* imguiDrawData {ImGui::GetDrawData()};
@@ -900,6 +894,92 @@ void VulkanRenderer::initComputeDescriptorSets()
     }
 }
 
+void VulkanRenderer::initImguiRenderPass()
+{
+    auto device {mDevice.getLogicalDevice()};
+
+    VkAttachmentDescription const colorAttachment
+    {
+        .format = mSwapChainImageFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+    
+    VkAttachmentReference const colorAttachmentRef
+    {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    };
+    
+    VkSubpassDescription const subpassDescription
+    {
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachmentRef
+    };
+    
+    VkSubpassDependency const subpassDependency
+    {
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+    };
+    
+    VkRenderPassCreateInfo const renderPassCreateInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &colorAttachment,
+        .subpassCount = 1,
+        .pSubpasses = &subpassDescription,
+        .dependencyCount = 1,
+        .pDependencies = &subpassDependency
+    };
+    
+    if(auto res {vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &mImguiRenderPass)};
+        res != VK_SUCCESS)
+    {
+        throw SystemInitException{
+            "vkCreateRenderPass failed to create the imgui render pass", res};
+    }
+}
+
+void VulkanRenderer::initImguiFrameBuffers()
+{
+    auto device {mDevice.getLogicalDevice()};
+
+    VkFramebufferCreateInfo info
+    {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .renderPass = mImguiRenderPass,
+        .attachmentCount = 1,
+        .width = mSwapChainExtent.width,
+        .height = mSwapChainExtent.height,
+        .layers = 1
+    };
+
+    mImguiFrameBuffers.resize(mSwapChainImageViews.size());
+
+    for(int i = 0; i < mSwapChainImageViews.size(); ++i)
+    {
+        info.pAttachments = &mSwapChainImageViews[i];
+
+        if(auto res{vkCreateFramebuffer(device, &info, nullptr, &mImguiFrameBuffers[i])}; 
+            res != VK_SUCCESS)
+        {
+            throw SystemInitException{"vkCreateFramebuffer failed", res};
+        }
+    }
+}
+
 void VulkanRenderer::initImguiBackend()
 {
     auto device {mDevice.getLogicalDevice()};
@@ -927,85 +1007,8 @@ void VulkanRenderer::initImguiBackend()
             throw SystemInitException{"vkCreateDescriptorPool failed to make the imgui desc pool", res};
     }
 
-    {
-        VkAttachmentDescription colorAttachment
-        {
-            .format = mSwapChainImageFormat,
-            .samples = VK_SAMPLE_COUNT_1_BIT,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-        };
-
-        VkAttachmentReference colorAttachmentRef
-        {
-            .attachment = 0,
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-        };
-
-        VkSubpassDescription const subpassDescription
-        {
-            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colorAttachmentRef
-        };
-
-        VkSubpassDependency const subpassDependency
-        {
-            .srcSubpass = VK_SUBPASS_EXTERNAL,
-            .dstSubpass = 0,
-            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-        };
-
-        VkRenderPassCreateInfo const renderPassCreateInfo
-        {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-            .attachmentCount = 1,
-            .pAttachments = &colorAttachment,
-            .subpassCount = 1,
-            .pSubpasses = &subpassDescription,
-            .dependencyCount = 1,
-            .pDependencies = &subpassDependency
-        };
-
-        if(auto res {vkCreateRenderPass(device, &renderPassCreateInfo, nullptr, &mImguiRenderPass)};
-            res != VK_SUCCESS)
-        {
-            throw SystemInitException{
-                "vkCreateRenderPass failed to create the imgui render pass", res};
-        }
-    }
-
-    {
-        VkFramebufferCreateInfo info
-        {
-            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-            .renderPass = mImguiRenderPass,
-            .attachmentCount = 1,
-            .width = mSwapChainExtent.width,
-            .height = mSwapChainExtent.height,
-            .layers = 1
-        };
-
-        mImguiFrameBuffers.resize(mSwapChainImageViews.size());
-
-        for(int i = 0; i < mSwapChainImageViews.size(); ++i)
-        {
-            info.pAttachments = &mSwapChainImageViews[i];
-
-            if(auto res{vkCreateFramebuffer(device, &info, nullptr, &mImguiFrameBuffers[i])}; 
-                res != VK_SUCCESS)
-            {
-                throw SystemInitException{"vkCreateFramebuffer failed", res};
-            }
-        }
-    }
+    initImguiRenderPass();
+    initImguiFrameBuffers();
 
     //pass vulkan info to imgui backend
     mImguiInitInfo.Instance = mDevice.getInstance();
@@ -1509,7 +1512,9 @@ void VulkanRenderer::recreateSwapChain()
         glfwWaitEvents();
     }
 
-    vkDeviceWaitIdle(mDevice.getLogicalDevice());
+    auto device {mDevice.getLogicalDevice()};
+
+    vkDeviceWaitIdle(device);
 
     initSwapChain();
     initSwapChainImageViews();
