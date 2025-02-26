@@ -929,7 +929,7 @@ void VulkanRenderer::initImguiRenderPass()
         .dstSubpass = 0,
         .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
         .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
     };
     
@@ -1020,8 +1020,8 @@ void VulkanRenderer::initImguiBackend()
     mImguiInitInfo.DescriptorPool = mImguiDescriptorPool;
     mImguiInitInfo.RenderPass = mImguiRenderPass;
     mImguiInitInfo.Subpass = 0;
-    mImguiInitInfo.MinImageCount = 2;
-    mImguiInitInfo.ImageCount = mSwapChainImages.size();
+    mImguiInitInfo.MinImageCount = (U32)mSwapChainImages.size();
+    mImguiInitInfo.ImageCount = (U32)mSwapChainImages.size();
     mImguiInitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     mImguiInitInfo.Allocator = nullptr;
     mImguiInitInfo.CheckVkResultFn = nullptr;
