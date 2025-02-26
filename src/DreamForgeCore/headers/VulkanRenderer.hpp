@@ -269,6 +269,7 @@ private:
 
     void initImguiRenderPass();
     void initImguiFrameBuffers();
+    void initImguiDescriptorPool();
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, U32 mipLevels);
 

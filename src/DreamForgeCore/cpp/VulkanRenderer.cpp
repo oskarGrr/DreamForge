@@ -360,8 +360,7 @@ void VulkanRenderer::update(F64 deltaTime, glm::vec<2, double> mousePos, float m
             .pWaitSemaphores = &mRenderFinishedSemaphores[mCurrentFrame],
             .swapchainCount = 1,
             .pSwapchains = &mSwapChain,
-            .pImageIndices = &imageIndex,
-            //.pResults = nullptr
+            .pImageIndices = &imageIndex
         };
 
         if(auto res {vkQueuePresentKHR(mDevice.getPresentQueue(), &presentInfo)})
@@ -980,33 +979,35 @@ void VulkanRenderer::initImguiFrameBuffers()
     }
 }
 
-void VulkanRenderer::initImguiBackend()
+void VulkanRenderer::initImguiDescriptorPool()
 {
     auto device {mDevice.getLogicalDevice()};
 
-    {
-        std::array<VkDescriptorPoolSize, 1> poolSizes
-        {{
-            {
-                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .descriptorCount = 1
-            }
-        }};
-
-        VkDescriptorPoolCreateInfo poolCreateInfo
+    std::array<VkDescriptorPoolSize, 1> poolSizes
+    {{
         {
-            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-            .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-            .maxSets = 1,
-            .poolSizeCount = poolSizes.size(),
-            .pPoolSizes = poolSizes.data()
-        };
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1
+        }
+    }};
+    
+    VkDescriptorPoolCreateInfo poolCreateInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1,
+        .poolSizeCount = poolSizes.size(),
+        .pPoolSizes = poolSizes.data()
+    };
+    
+    auto const res {vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &mImguiDescriptorPool)};
+    if(res != VK_SUCCESS)
+        throw SystemInitException{"vkCreateDescriptorPool failed to make the imgui desc pool", res};
+}
 
-        auto const res {vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &mImguiDescriptorPool)};
-        if(res != VK_SUCCESS)
-            throw SystemInitException{"vkCreateDescriptorPool failed to make the imgui desc pool", res};
-    }
-
+void VulkanRenderer::initImguiBackend()
+{
+    initImguiDescriptorPool();
     initImguiRenderPass();
     initImguiFrameBuffers();
 
@@ -1483,22 +1484,25 @@ void VulkanRenderer::cleanupSwapChain()
 {
     auto device { mDevice.getLogicalDevice() };
 
-    vkDestroyImageView(device, mColorImageView, nullptr);
-    vkDestroyImage(device, mColorImage, nullptr);
-    vkFreeMemory(device, mColorImageMemory, nullptr);
-
-    vkDestroyImageView(device, mDepthImageView, nullptr);
-    vkDestroyImage(device, mDepthImage, nullptr);
-    vkFreeMemory(device, mDepthImageMemory, nullptr);
-
     for(auto framebuffer : mSwapChainFramebuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
 
     for(auto framebuffer : mImguiFrameBuffers)
         vkDestroyFramebuffer(device, framebuffer, nullptr);
 
-    for(auto imageView : mSwapChainImageViews)
-        vkDestroyImageView(device, imageView, nullptr);
+    {//destroy the framebuffer attachments
+
+        for(auto imageView : mSwapChainImageViews)
+            vkDestroyImageView(device, imageView, nullptr);
+
+        vkDestroyImageView(device, mDepthImageView, nullptr);
+        vkDestroyImage(device, mDepthImage, nullptr);
+        vkFreeMemory(device, mDepthImageMemory, nullptr);
+
+        vkDestroyImageView(device, mColorImageView, nullptr);
+        vkDestroyImage(device, mColorImage, nullptr);
+        vkFreeMemory(device, mColorImageMemory, nullptr);
+    }
 
     vkDestroySwapchainKHR(device, mSwapChain, nullptr);
 }
@@ -1516,11 +1520,15 @@ void VulkanRenderer::recreateSwapChain()
 
     vkDeviceWaitIdle(device);
 
+    
+    cleanupSwapChain();
+
     initSwapChain();
     initSwapChainImageViews();
     initColorResources();
     initDepthRescources();
     initFramebuffers();
+    initImguiFrameBuffers();
 }
 
 void VulkanRenderer::initFramebuffers()
@@ -1642,8 +1650,7 @@ void VulkanRenderer::initSwapChain()
         .preTransform = swapChainSupportInfo.capabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
-        .clipped = VK_TRUE,
-        .oldSwapchain = mSwapChain
+        .clipped = VK_TRUE
     };
 
     VulkanDevice::QueueFamilyIndices indices {mDevice.getQueueFamilyIndices()};
