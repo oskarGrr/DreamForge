@@ -1,10 +1,10 @@
 A 3D game engine meant to learn how large systems in software architecture work.                         
-Right now Dream Forge is a WIP and very new. There is not even a renderer yet, but this is meant         
+Right now Dream Forge is a WIP and very new. This is meant
 to be a life long project that will hopefully provide lots of learning experiences.                      
 Currently I am working on the foundation of the project and thinking about architecture decisions.       
 The build system is mostly in place for now (CMake and vcpkg). The Mono Project runtime has been embedded
-into the core of the engine to allow for running C# scripts. In the future I hope to also       
-include interfaces for other languages that compile to ECMA byte code too!                               
+into the core of the engine to allow for running C# scripts. The Vulkan renderer has just started to take shape
+and I suspect will be working on that for a long time before thinking about other parts of the engine.                             
 
 ## Build inscructions:
 
